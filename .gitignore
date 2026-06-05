@@ -1,5 +1,7 @@
 backend/.env
-frontend/.env.local
 .venv/
 __pycache__/
 *.pyc
+medislot-frontend/.env.local
+medislot-frontend/node_modules/
+medislot-frontend/.next/
