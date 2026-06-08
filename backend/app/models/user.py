@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
+from sqlalchemy.orm import relationship
 
 from app.db.session import Base
 
@@ -16,3 +17,6 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # One-to-one relationship with Patient (optional, only patients have this)
+    patient = relationship("Patient", back_populates="user", uselist=False, cascade="all, delete-orphan")
