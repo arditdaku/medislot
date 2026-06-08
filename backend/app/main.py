@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -18,8 +20,14 @@ def read_root():
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     """Liveness check including a database connectivity ping."""
+    timestamp = datetime.now(timezone.utc).isoformat()
     try:
         db.execute(text("SELECT 1"))
-        return {"status": "ok", "database": "connected"}
+        return {"status": "ok", "database": "connected", "timestamp": timestamp}
     except Exception as exc:
-        return {"status": "degraded", "database": "unreachable", "detail": str(exc)}
+        return {
+            "status": "degraded",
+            "database": "unreachable",
+            "detail": str(exc),
+            "timestamp": timestamp,
+        }
