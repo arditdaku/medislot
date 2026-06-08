@@ -27,8 +27,20 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # TODO: Add Patient record when patient.py is available
+    if new_user.role == "patient":
+        from app.models.patient import Patient
+        patient = Patient(
+            user_id=new_user.id,
+            full_name=new_user.full_name,
+            dob="2000-01-01",
+            phone="0000000000",
+            address="unknown",
+        )
+        db.add(patient)
+        db.commit()
+
     return new_user
+
 
 @router.post("/login", response_model=TokenResponse)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
