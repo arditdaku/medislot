@@ -1,15 +1,67 @@
 @import "tailwindcss";
 
 @theme {
-  /* Navy palette */
-  --color-navy: #1f3a5f;
-  --color-navy-light: #2c4a73;
-  --color-navy-dark: #14283f;
+  /*  Brand Primary - Blue (#0083D3)  */
+  --color-primary: #0083D3;
+  --color-primary-50: #E6F4FB;
+  --color-primary-100: #B3DEF3;
+  --color-primary-200: #80C8EB;
+  --color-primary-300: #4DB2E3;
+  --color-primary-400: #269BDB;
+  --color-primary-500: #0083D3;
+  --color-primary-600: #006BAD;
+  --color-primary-700: #005287;
+  --color-primary-800: #003A61;
+  --color-primary-900: #00213B;
 
-  /* Slate palette */
-  --color-slate-custom: #34495e;
-  --color-slate-custom-light: #4a5f74;
+  /*  Brand Dark - Navy (#000A1D)  */
+  --color-navy: #000A1D;
+  --color-navy-50: #E6E7EA;
+  --color-navy-100: #B3B6BD;
+  --color-navy-200: #808590;
+  --color-navy-300: #4D5463;
+  --color-navy-400: #262F42;
+  --color-navy-500: #000A1D;
+  --color-navy-600: #000818;
+  --color-navy-700: #000612;
+  --color-navy-800: #00040D;
+  --color-navy-900: #000207;
 
-  /* Background */
-  --color-soft-gray: #f5f7f9;
+  /* Brand Light - White (#FDFDFF) */
+  --color-light: #FDFDFF;
+
+  /* Backgrounds */
+  --color-bg-primary: #FDFDFF;
+  --color-bg-secondary: #F5F7FA;
+  --color-bg-muted: #EDF0F5;
+
+  /* Text */
+  --color-text-primary: #000A1D;
+  --color-text-secondary: #4A5568;
+  --color-text-muted: #718096;
+  --color-text-dark: #010203;
+
+  /*  Borders  */
+  --color-border: #E2E8F0;
+  --color-border-light: #EDF0F5;
+
+  /*  Status Colors  */
+  --color-success: ##22bb33;
+  --color-success-light: #D1FAE5;
+  --color-warning: #f0ad4e;
+  --color-warning-light: #FEF3C7;
+  --color-danger: #bb2124;
+  --color-danger-light: #FEE2E2;
+  --color-info: ##5bc0de;
+  --color-info-light: #E6F4FB;
+}
+
+/*  Global Defaults  */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
