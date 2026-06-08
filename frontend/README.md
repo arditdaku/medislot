@@ -4,11 +4,10 @@ Web client for MediSlot, an appointment-scheduling SaaS for medical clinics.
 Next.js (App Router) + TypeScript. All logic, auth, and data live on the FastAPI
 backend — this app renders UI and calls the API.
 
-> 🚧 Skeleton phase — structure and routing are in place; most files are stubs.
 
 ## Landing page design
 
-Single-page marketing site, ordered to match the navbar.
+Single-page marketing site,
 
 ### Hero
 ![Hero](docs/landing/1.png)
@@ -50,18 +49,3 @@ npm run dev
 ```
 
 Open http://localhost:3000.
-
-## Project structure
-
-```
-src/
-├── app/          # Routing — pages, layouts, error/loading/not-found
-│   ├── (auth)/        # login, register
-│   └── (dashboard)/   # patient / doctor / staff
-├── components/   # ui → shared → layout → features
-├── config/       # env, routes, roles
-├── hooks/        # React state + API binding
-├── lib/          # api-client (axios) + lib/api/* (mirrors FastAPI routers)
-├── types/        # request/response shapes (mirror Pydantic schemas)
-└── proxy.ts      # coarse route gating (UX only — real auth is on FastAPI)
-```
