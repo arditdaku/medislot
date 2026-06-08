@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-
+from app.routes import auth
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -11,6 +11,8 @@ app = FastAPI(
     description="API for managing clinic appointments and capacities",
     version="1.0.0"
 )
+
+app.include_router(auth.router)
 
 @app.get("/")
 def read_root():

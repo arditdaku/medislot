@@ -7,15 +7,18 @@ class PatientCreate(BaseModel):
     dob: date
     phone: str
     address: str
+    gender: str
 
 class PatientResponse(BaseModel):
-    id: int
+    id: int 
     user_id: int
     full_name: str
     dob: date
     phone: str
     address: str
+    gender: str
     created_at: datetime
+    updated_at: datetime
     
     class Config:
         from_attributes = True
