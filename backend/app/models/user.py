@@ -15,4 +15,10 @@ class User(Base):
     role = Column(Enum("patient", "admin", "doctor", name="user_role"), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+<<<<<<< Updated upstream
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+=======
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    patient = relationship("Patient", back_populates="user", uselist=False, cascade="all, delete-orphan")
+>>>>>>> Stashed changes
