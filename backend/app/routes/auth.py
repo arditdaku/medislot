@@ -17,6 +17,8 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered"
         )
+    
+    #please change the model to not include role on register
     new_user = User(
         email=user_in.email,
         password_hash=hash_password(user_in.password),
