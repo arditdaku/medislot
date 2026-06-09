@@ -30,8 +30,10 @@ export default function Header() {
             </a>
           ))}
         </div>
-        <div className="hidden items-center gap-3 lg:flex">
-          <Button variant="secondary">Login</Button>
+        <div className="hidden items-center gap-2 lg:flex">
+          <Link href="/login">
+            <Button variant="secondary">Login</Button>
+          </Link>
           <Link href="/register">
             <Button variant="primary">Create Account</Button>
           </Link>
@@ -66,8 +68,10 @@ export default function Header() {
                   {item}
                 </a>
               ))}
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <Button variant="ghost">Login</Button>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Link href="/login">
+                  <Button variant="secondary">Login</Button>
+                </Link>
                 <Link href="/register">
                   <Button variant="secondary">Create Account</Button>
                 </Link>
