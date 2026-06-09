@@ -1,5 +1,5 @@
 export function login(token: string, role: string, user: object) {
-  localStorage.setItem("token", token);
+  localStorage.setItem("access_token", token);
   localStorage.setItem("role", role);
   localStorage.setItem("user", JSON.stringify(user));
 }
@@ -15,9 +15,9 @@ export function getUser() {
 }
 
 export function getToken() {
-  return localStorage.getItem("token");
+  return localStorage.getItem("access_token");
 }
 
 export function isAuthenticated(): boolean {
-  return !!localStorage.getItem("token");
+  return !!localStorage.getItem("access_token");
 }
