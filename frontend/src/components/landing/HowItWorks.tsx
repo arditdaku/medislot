@@ -32,7 +32,7 @@ export default function HowItWorks() {
           description="Keep every appointment moving with clear patient actions and automated clinic workflows."
         />
         <div className="relative mt-14 grid gap-5 lg:grid-cols-3">
-          <div className="absolute left-1/2 top-12 hidden h-px w-2/3 -translate-x-1/2 bg-slate-200 lg:block" />
+          <div className="absolute left-1/2 top-12 hidden h-px w-2/3 -translate-x-1/2 bg-[var(--color-border)] lg:block" />
           {workflow.map((step, index) => (
             <motion.div
               key={step.title}
@@ -46,10 +46,10 @@ export default function HowItWorks() {
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[var(--color-primary)] text-lg font-bold text-[var(--color-white)]">
                   {index + 1}
                 </span>
-                <h3 className="mt-6 text-xl font-bold text-slate-950">
+                <h3 className="mt-6 text-xl font-bold text-[var(--color-text-primary)]">
                   {step.title}
                 </h3>
-                <p className="mt-3 leading-7 text-slate-600">
+                <p className="mt-3 leading-7 text-[var(--color-text-secondary)]">
                   {step.description}
                 </p>
               </Card>

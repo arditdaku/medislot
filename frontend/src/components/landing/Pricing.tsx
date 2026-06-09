@@ -55,7 +55,7 @@ export default function Pricing() {
               key={plan.name}
               className={`relative p-7 ${
                 plan.popular
-                  ? "border-sky-300 ring-4 ring-sky-100"
+                  ? "border-[var(--color-primary-300)] ring-4 ring-[var(--color-primary-300)]"
                   : ""
               }`}
             >
@@ -64,18 +64,18 @@ export default function Pricing() {
                   Most popular
                 </span>
               )}
-              <h3 className="text-xl font-bold text-slate-950">
+              <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
                 {plan.name}
               </h3>
-              <p className="mt-3 min-h-12 text-sm leading-6 text-slate-600">
+              <p className="mt-3 min-h-12 text-sm leading-6 text-[var(--color-text-secondary)]">
                 {plan.description}
               </p>
               <div className="mt-6 flex items-end gap-2">
-                <span className="text-4xl font-bold text-slate-950">
+                <span className="text-4xl font-bold text-[var(--color-text-primary)]">
                   {plan.price}
                 </span>
                 {plan.price !== "Custom" && (
-                  <span className="pb-1 text-slate-500">
+                  <span className="pb-1 text-[var(--color-text-muted)]">
                     /month
                   </span>
                 )}
@@ -88,8 +88,8 @@ export default function Pricing() {
               </Button>
               <ul className="mt-7 space-y-3">
                 {plan.features.map((feature) => (
-                  <li key={feature}className="flex gap-3 text-sm text-slate-600">
-                    <Check className="mt-0.5 h-4 w-4 flex-none text-teal-500" />
+                  <li key={feature}className="flex gap-3 text-sm text-[var(--color-text-secondary)]">
+                    <Check className="mt-0.5 h-4 w-4 flex-none text-[var(--color-navy)]" />
                     {feature}
                   </li>
                 ))}

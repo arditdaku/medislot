@@ -22,7 +22,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="border-t border-slate-200 bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
+    <footer className="border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div>
           <Logo />
@@ -35,7 +35,7 @@ export default function Footer() {
               <a
                 key={index}
                 href="#"
-                className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 text-[var(--color-secondary)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                className="grid h-10 w-10 place-items-center rounded-full border border-[var(--color-border)] text-[var(--color-secondary)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
                 aria-label="Social profile"
               >
                 <Icon size={18} />
@@ -75,7 +75,7 @@ export default function Footer() {
           </div>
         </div>
       </div>
-      <div className="mx-auto mt-10 max-w-7xl border-t border-slate-200 pt-6 text-sm text-[var(--color-secondary)]">
+      <div className="mx-auto mt-10 max-w-7xl border-t border-[var(--color-border)] pt-6 text-sm text-[var(--color-secondary)]">
         &copy; 2026 MediSlot. All rights reserved.
       </div>
     </footer>

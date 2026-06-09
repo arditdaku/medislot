@@ -9,8 +9,8 @@ import MiniAppointmentCard from "./MiniAppointmentCard";
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden bg-slate-50 px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-      <div className="absolute inset-0 -z-0 bg-[radial-gradient(circle_at_top_left,#e0f2fe,transparent_34%),radial-gradient(circle_at_bottom_right,#ccfbf1,transparent_30%)]" />
+    <section className="relative overflow-hidden bg-[var(--color-bg-secondary)] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+      <div className="absolute inset-0 -z-0 bg-[radial-gradient(circle_at_top_left,var(--color-primary-100),transparent_34%),radial-gradient(circle_at_bottom_right,var(--color-primary-50),transparent_30%)]" />
       <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
         <motion.div
           initial={false}
@@ -18,10 +18,10 @@ export default function Hero() {
           variants={fadeUp}
           transition={{ duration: 0.6 }}
         >
-          <p className="inline-flex rounded-full border border-sky-100 bg-white px-4 py-2 text-sm font-semibold text-[var(--color-primary)] shadow-sm">
+          <p className="inline-flex rounded-full border border-[var(--color-primary-100)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-primary)] shadow-sm">
             Trusted scheduling for modern healthcare teams
           </p>
-          <h1 className="mt-6 max-w-4xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+          <h1 className="mt-6 max-w-4xl text-4xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-5xl lg:text-6xl">
             Modern Appointment Scheduling for Medical Clinics
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-[var(--color-secondary)]">
@@ -38,7 +38,7 @@ export default function Hero() {
           <div className="mt-8 flex flex-wrap gap-5 text-sm text-[var(--color-secondary)]">
             {["HIPAA-ready workflows", "Setup within a day"].map((item) => (
               <span key={item} className="inline-flex items-center gap-2">
-                <Check className="h-4 w-4 text-teal-500" />
+                <Check className="h-4 w-4 text-[var(--color-navy)]" />
                 {item}
               </span>
             ))}

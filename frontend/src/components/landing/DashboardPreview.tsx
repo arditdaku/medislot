@@ -5,7 +5,7 @@ import DashboardMockup from "./DashboardMockup";
 
 export default function DashboardPreview() {
   return (
-    <section id="dashboard" className="bg-slate-50 px-4 py-20 sm:px-6 lg:px-8">
+    <section id="dashboard" className="bg-[var(--color-bg-secondary)] px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           eyebrow="Dashboard"
