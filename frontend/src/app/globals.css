@@ -40,19 +40,21 @@
   --color-text-secondary: #4A5568;
   --color-text-muted: #718096;
   --color-text-dark: #010203;
+  --color-secondary: #4A5568;
+  --color-white: #FDFDFF;
 
   /*  Borders  */
   --color-border: #E2E8F0;
   --color-border-light: #EDF0F5;
 
   /*  Status Colors  */
-  --color-success: ##22bb33;
+  --color-success: #22bb33;
   --color-success-light: #D1FAE5;
   --color-warning: #f0ad4e;
   --color-warning-light: #FEF3C7;
   --color-danger: #bb2124;
   --color-danger-light: #FEE2E2;
-  --color-info: ##5bc0de;
+  --color-info: #5bc0de;
   --color-info-light: #E6F4FB;
 }
 
