@@ -37,7 +37,6 @@ export default function Header() {
           <Link href="/register">
             <Button variant="primary">Create Account</Button>
           </Link>
-          {/* <Button variant="secondary">Book Demo</Button> */}
         </div>
         <button
           type="button"
@@ -69,13 +68,12 @@ export default function Header() {
                 </a>
               ))}
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <Link href="/login">
-                  <Button variant="secondary">Login</Button>
+                <Link href="/login" className="w-full">
+                  <Button variant="secondary" className="w-full">Login</Button>
                 </Link>
-                <Link href="/register">
-                  <Button variant="secondary">Create Account</Button>
+                <Link href="/register" className="w-full">
+                  <Button variant="secondary" className="w-full">Create Account</Button>
                 </Link>
-                <Button variant="secondary" className="col-span-2">Book Demo</Button>
               </div>
             </div>
           </motion.div>
