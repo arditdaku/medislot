@@ -17,12 +17,11 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered"
         )
-    
-    #please change the model to not include role on register
+
     new_user = User(
         email=user_in.email,
         password_hash=hash_password(user_in.password),
-        role=user_in.role,
+        role=user_in.role.lower(),
         full_name=user_in.full_name,
     )
     db.add(new_user)
@@ -59,7 +58,8 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
             detail="Invalid email or password"
         )
 
-    access_token = create_access_token(data={"sub": user.id, "role": user.role})
+    access_token = create_access_token(
+        data={"sub": user.id, "role": user.role})
 
     return {
         "access_token": access_token,

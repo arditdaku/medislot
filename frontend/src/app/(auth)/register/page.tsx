@@ -1,16 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
+import { ChevronLeft } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
 export default function RegisterForm() {
   const router = useRouter();
-
-  type Role = "Patient" | "Doctor" | "Admin";
-
-  const [selectedRole, setSelectedRole] = useState<Role>("Patient");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -41,14 +39,12 @@ export default function RegisterForm() {
 
       const response = await fetch("http://localhost:8000/auth/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           full_name: formData.fullName,
           email: formData.email,
           password: formData.password,
-          role: selectedRole,
+          role: "patient",
         }),
       });
 
@@ -67,26 +63,43 @@ export default function RegisterForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] flex items-center justify-center px-4 py-6">
-      <div className="w-full max-w-[400px] rounded-[18px] border border-[#e5e7eb] bg-white px-7 py-8 shadow-sm">
+    <div className="relative min-h-screen bg-bg-secondary flex items-center justify-center px-4 py-6">
+
+      {/* Back to home */}
+      <Link
+        href="/"
+        className="absolute left-6 top-6 inline-flex items-center gap-1 text-md font-medium text-text-secondary transition hover:text-primary"
+      >
+        <ChevronLeft size={21} />
+        <span className="leading-none">Back</span>
+      </Link>
+
+      <div className="w-full max-w-[400px] rounded-xl border border-border bg-bg-primary px-7 py-8 shadow-sm">
+
+        {/* Logo */}
         <div className="mb-6">
-          <h1 className="text-2xl font-extrabold leading-none tracking-tight">
-            <span className="text-[#5B6EF5]">Medi</span>
-            <span className="text-[#111827]">Slot</span>
-          </h1>
+          <Image
+            src="/logo.png"
+            alt="MediSlot"
+            width={160}
+            height={40}
+            priority
+            className="h-9 w-auto"
+          />
         </div>
 
+        {/* Title */}
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-[#111827]">Create Account</h2>
-          <p className="mt-1 text-xs text-[#4b5563]">
+          <h2 className="text-xl font-bold text-text-primary">Create Account</h2>
+          <p className="mt-1 text-xs text-text-muted">
             Please sign up to book appointment
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>       
-
+        <form onSubmit={handleSubmit}>
+          {/* Full Name */}
           <div className="mb-4">
-            <label className="mb-1 block text-xs font-semibold text-[#111827]">
+            <label className="mb-1 block text-xs font-semibold text-text-primary">
               Full name
             </label>
             <input
@@ -96,12 +109,13 @@ export default function RegisterForm() {
               onChange={handleChange}
               placeholder="Jane Doe"
               required
-              className="h-10 w-full rounded-lg border border-[#d1d5db] px-3 text-xs outline-none transition focus:border-[#5B6EF5]"
+              className="h-10 w-full rounded-lg border border-border bg-bg-primary px-3 text-xs text-text-primary outline-none transition focus:border-primary"
             />
           </div>
 
+          {/* Email */}
           <div className="mb-4">
-            <label className="mb-1 block text-xs font-semibold text-[#111827]">
+            <label className="mb-1 block text-xs font-semibold text-text-primary">
               Email
             </label>
             <input
@@ -111,12 +125,13 @@ export default function RegisterForm() {
               onChange={handleChange}
               placeholder="you@clinic.com"
               required
-              className="h-10 w-full rounded-lg border border-[#d1d5db] px-3 text-xs outline-none transition focus:border-[#5B6EF5]"
+              className="h-10 w-full rounded-lg border border-border bg-bg-primary px-3 text-xs text-text-primary outline-none transition focus:border-primary"
             />
           </div>
 
+          {/* Password */}
           <div className="mb-4">
-            <label className="mb-1 block text-xs font-semibold text-[#111827]">
+            <label className="mb-1 block text-xs font-semibold text-text-primary">
               Password
             </label>
             <input
@@ -126,12 +141,13 @@ export default function RegisterForm() {
               onChange={handleChange}
               placeholder="••••••••"
               required
-              className="h-10 w-full rounded-lg border border-[#d1d5db] px-3 text-xs outline-none transition focus:border-[#5B6EF5]"
+              className="h-10 w-full rounded-lg border border-border bg-bg-primary px-3 text-xs text-text-primary outline-none transition focus:border-primary"
             />
           </div>
 
+          {/* Confirm Password */}
           <div className="mb-6">
-            <label className="mb-1 block text-xs font-semibold text-[#111827]">
+            <label className="mb-1 block text-xs font-semibold text-text-primary">
               Confirm Password
             </label>
             <input
@@ -141,24 +157,25 @@ export default function RegisterForm() {
               onChange={handleChange}
               placeholder="••••••••"
               required
-              className="h-10 w-full rounded-lg border border-[#d1d5db] px-3 text-xs outline-none transition focus:border-[#5B6EF5]"
+              className="h-10 w-full rounded-lg border border-border bg-bg-primary px-3 text-xs text-text-primary outline-none transition focus:border-primary"
             />
           </div>
 
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
-            className="mb-5 h-10 w-full rounded-full bg-[#5B6EF5] text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+            className="mb-5 h-10 w-full rounded-full bg-primary text-sm font-semibold text-white transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loading ? "Creating..." : "Create account"}
           </button>
         </form>
 
-        <p className="text-center text-xs text-[#4b5563]">
+        <p className="text-center text-xs text-text-muted">
           Already have an account?{" "}
           <Link
             href="/login"
-            className="font-semibold text-[#5B6EF5] hover:underline"
+            className="font-semibold text-primary hover:underline"
           >
             Login here
           </Link>
