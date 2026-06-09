@@ -31,7 +31,7 @@ const testimonials = [
 
 export default function Testimonials() {
   return (
-    <section className="bg-slate-50 px-4 py-20 sm:px-6 lg:px-8">
+    <section className="bg-[var(--color-bg-secondary)] px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           eyebrow="Testimonials"
@@ -53,7 +53,7 @@ export default function Testimonials() {
                 &ldquo;{testimonial.quote}&rdquo;
               </blockquote>
               <div className="mt-6 flex items-center gap-3">
-                <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-100 font-bold text-[var(--color-primary)]">
+                <div className="grid h-12 w-12 place-items-center rounded-full bg-[var(--color-primary-100)] font-bold text-[var(--color-primary)]">
                   {testimonial.initials}
                 </div>
                 <div>

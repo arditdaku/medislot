@@ -33,7 +33,7 @@ export default function Benefits() {
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
         >
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-600">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-navy)]">
             Benefits
           </p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--color-secondary)] sm:text-4xl">
@@ -49,7 +49,7 @@ export default function Benefits() {
                 key={benefit}
                 className="flex items-center gap-3 text-[var(--color-secondary)]"
               >
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-teal-50 text-teal-600">
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-[var(--color-navy-50)] text-[var(--color-navy)]">
                   <Check size={16} />
                 </span>
                 <span className="font-medium">{benefit}</span>
@@ -71,10 +71,10 @@ export default function Benefits() {
                 className={`p-6 ${index % 2 ? "sm:translate-y-8" : ""}`}
               >
                 <Icon className="h-8 w-8 text-[var(--color-primary)]" />
-                <p className="mt-8 text-3xl font-bold text-slate-950">
+                <p className="mt-8 text-3xl font-bold text-[var(--color-text-primary)]">
                   {item.value}
                 </p>
-                <p className="mt-2 text-sm font-medium text-slate-500">
+                <p className="mt-2 text-sm font-medium text-[var(--color-text-muted)]">
                   {item.title}
                 </p>
               </Card>

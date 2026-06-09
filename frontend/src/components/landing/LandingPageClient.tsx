@@ -24,7 +24,7 @@ export default function LandingPageClient() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-950 antialiased">
+    <div className="min-h-screen bg-white text-[var(--color-text-primary)] antialiased">
       <Header />
       <main>
         <Hero />

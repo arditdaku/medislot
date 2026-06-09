@@ -38,7 +38,7 @@ export default function FAQ() {
   const [active, setActive] = useState<number>(0);
 
   return (
-    <section id="faq" className="bg-slate-50 px-4 py-20 sm:px-6 lg:px-8">
+    <section id="faq" className="bg-[var(--color-bg-secondary)] px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
         <SectionHeader
           eyebrow="FAQ"
@@ -54,12 +54,12 @@ export default function FAQ() {
                 <button
                   type="button"
                   onClick={() => setActive(isOpen ? -1 : index)}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left font-semibold text-slate-950"
+                  className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left font-semibold text-[var(--color-text-primary)]"
                   aria-expanded={isOpen}
                 >
                   {faq.question}
                   <ChevronDown
-                    className={`h-5 w-5 flex-none text-slate-400 transition ${
+                    className={`h-5 w-5 flex-none text-[var(--color-text-muted)] transition ${
                       isOpen ? "rotate-180" : ""
                     }`}
                   />
@@ -72,7 +72,7 @@ export default function FAQ() {
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <p className="px-5 pb-5 leading-7 text-slate-600">
+                      <p className="px-5 pb-5 leading-7 text-[var(--color-text-secondary)]">
                         {faq.answer}
                       </p>
                     </motion.div>

@@ -80,10 +80,10 @@ const features = [
 
 export default function Features() {
   return (
-    <section id="features" className="bg-slate-50 px-4 py-20 sm:px-6 lg:px-8">
+    <section id="features" className="bg-[var(--color-bg-secondary)] px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
-          eyebrow="Features"
+          eyebrow="Features" 
           title="Everything your clinic needs to keep calendars healthy"
           description="MediSlot brings booking, reminders, provider availability, patient context, and reporting into one calm operating system."
         />
@@ -100,14 +100,14 @@ export default function Features() {
                 viewport={{ once: true, amount: 0.25 }}
                 transition={{ duration: 0.45, delay: index * 0.04 }}
               >
-                <Card className="h-full p-6 hover:-translate-y-1 hover:shadow-2xl hover:shadow-sky-100">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-[var(--color-primary)]">
+                <Card className="h-full p-6 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[var(--color-primary-100)]">
+                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--color-primary-50)] text-[var(--color-primary)]">
                     <Icon size={23} />
                   </div>
-                  <h3 className="mt-5 text-lg font-bold text-slate-950">
+                  <h3 className="mt-5 text-lg font-bold text-dark">
                     {feature.title}
                   </h3>
-                  <p className="mt-3 leading-7 text-slate-600">
+                  <p className="mt-3 leading-7 text-[var(--color-text-secondary)]">
                     {feature.description}
                   </p>
                 </Card>

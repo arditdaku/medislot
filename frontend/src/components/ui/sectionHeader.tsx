@@ -21,13 +21,13 @@ export default function SectionHeader({
       viewport={{ once: true, amount: 0.4 }}
       transition={{ duration: 0.5 }}
     >
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-600">
+      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
         {eyebrow}
       </p>
-      <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+      <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-4xl">
         {title}
       </h2>
-      <p className="mt-4 text-base leading-7 text-slate-600">{description}</p>
+      <p className="mt-4 text-base leading-7 text-[var(--color-text-secondary)]">{description}</p>
     </motion.div>
   );
 }

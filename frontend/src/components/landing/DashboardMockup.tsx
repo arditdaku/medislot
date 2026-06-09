@@ -18,6 +18,17 @@ const tableRows = [
   ["14:00", "Noah Kim", "Physical therapy", "Confirmed"],
 ];
 
+const statusColors = {
+  Confirmed:
+    "bg-[var(--color-success-light)] text-[var(--navy-color)]",
+
+  Pending:
+    "bg-[var(--color-warning-light)] text-[var(--navy-color)]",
+
+  "Reminder sent":
+    "bg-[var(--color-info-light)] text-[var(--navy-color)]",
+};
+
 type DashboardMockupProps = {
   compact?: boolean;
 };
@@ -50,14 +61,14 @@ export default function DashboardMockup({
     <Card className={`overflow-hidden p-4 sm:p-6 ${compact ? "" : "lg:p-7"}`}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-teal-600">
+          <p className="text-sm font-semibold text-[var(--color-navy)]">
             Clinic command center
           </p>
-          <h3 className="mt-1 text-xl font-bold text-slate-950">
+          <h3 className="mt-1 text-xl font-bold text-[var(--color-text-primary)]">
             Today&apos;s schedule
           </h3>
         </div>
-        <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
+        <span className="rounded-full bg-[var(--color-success-light)] px-3 py-1 text-xs font-semibold text-[var(--color-navy)]">
           Live sync
         </span>
       </div>
@@ -68,13 +79,13 @@ export default function DashboardMockup({
           return (
             <div
               key={stat.label}
-              className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
+              className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] p-4"
             >
                 <Icon className="h-5 w-5 text-[var(--color-primary)]" />
-                <p className="mt-3 text-2xl font-bold text-slate-950">
+                <p className="mt-3 text-2xl font-bold text-[var(--color-text-primary)]">
                 {stat.value}
               </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-[var(--color-text-muted)]">
                 {stat.label}
               </p>
             </div>
@@ -83,12 +94,12 @@ export default function DashboardMockup({
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-2xl border border-slate-100 bg-white p-4">
+        <div className="rounded-2xl border border-[var(--color-border-light)] bg-white p-4">
           <div className="flex items-end gap-2">
             {[52, 74, 46, 88, 68, 94, 78].map((height, index) => (
               <div
                 key={height + index}
-                className="flex flex-1 items-end rounded-full bg-slate-100 p-1"
+                className="flex flex-1 items-end rounded-full bg-[var(--color-border-light)] p-1"
                 style={{ height: 128 }}
               >
                 <div
@@ -98,12 +109,12 @@ export default function DashboardMockup({
               </div>
             ))}
           </div>
-          <p className="mt-4 text-sm font-medium text-slate-600">
+          <p className="mt-4 text-sm font-medium text-[var(--color-text-secondary)]">
             Weekly booking volume
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-100 bg-white p-4">
-          <div className="grid grid-cols-7 gap-1 text-center text-xs text-slate-400">
+        <div className="rounded-2xl border border-[var(--color-border-light)] bg-white p-4">
+          <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--color-text-muted)]">
             {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => (
               <span key={day + index}>{day}</span>
             ))}
@@ -112,8 +123,8 @@ export default function DashboardMockup({
                 key={index}
                 className={`grid aspect-square place-items-center rounded-full text-xs ${
                   [5, 11, 12, 18, 21].includes(index)
-                    ? "bg-sky-100 font-semibold text-[var(--color-primary)]"
-                    : "text-slate-500"
+                    ? "bg-[var(--color-primary-100)] font-semibold text-[var(--color-primary)]"
+                    : "text-[var(--color-text-muted)]"
                 }`}
               >
                 {index + 1}
@@ -123,9 +134,9 @@ export default function DashboardMockup({
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-100">
+      <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--color-border-light)]">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="bg-[var(--color-bg-secondary)] text-xs uppercase text-[var(--color-text-muted)]">
             <tr>
               <th className="px-4 py-3 font-semibold">Time</th>
               <th className="px-4 py-3 font-semibold">Patient</th>
@@ -135,20 +146,24 @@ export default function DashboardMockup({
               <th className="px-4 py-3 font-semibold">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-[var(--color-border-light)]">
             {tableRows.map(([time, patient, visit, status]) => (
               <tr key={`${time}-${patient}`} className="bg-white">
-                <td className="px-4 py-3 font-medium text-slate-900">
+                <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
                   {time}
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                   {patient}
                 </td>
-                <td className="hidden px-4 py-3 text-slate-500 sm:table-cell">
+                <td className="hidden px-4 py-3 text-[var(--color-text-muted)] sm:table-cell">
                   {visit}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      statusColors[status as keyof typeof statusColors]
+                    }`}
+                  >
                     {status}
                   </span>
                 </td>

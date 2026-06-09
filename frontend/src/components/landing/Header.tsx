@@ -13,7 +13,7 @@ export default function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-[var(--color-border)]/70 bg-white/85 backdrop-blur-xl">
       <nav
         className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8"
         aria-label="Main navigation"
@@ -33,14 +33,14 @@ export default function Header() {
         <div className="hidden items-center gap-3 lg:flex">
           <Button variant="secondary">Login</Button>
           <Link href="/register">
-            <Button variant="secondary">Create Account</Button>
+            <Button variant="primary">Create Account</Button>
           </Link>
-          <Button>Book Demo</Button>
+          {/* <Button variant="secondary">Book Demo</Button> */}
         </div>
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="grid h-11 w-11 place-items-center rounded-full border border-slate-200 text-[var(--color-secondary)] lg:hidden"
+          className="grid h-11 w-11 place-items-center rounded-full border border-[var(--color-border)] text-[var(--color-secondary)] lg:hidden"
           aria-expanded={open}
           aria-label="Toggle menu"
         >
@@ -53,7 +53,7 @@ export default function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-t border-slate-200 bg-white px-4 py-4 lg:hidden"
+            className="border-t border-[var(--color-border)] bg-white px-4 py-4 lg:hidden"
           >
             <div className="flex flex-col gap-2">
               {navItems.map((item) => (
@@ -61,7 +61,7 @@ export default function Header() {
                   key={item}
                   href={`#${item.toLowerCase()}`}
                   onClick={() => setOpen(false)}
-                  className="rounded-2xl px-3 py-3 text-sm font-medium text-[var(--color-secondary)] hover:bg-slate-100"
+                  className="rounded-2xl px-3 py-3 text-sm font-medium text-[var(--color-secondary)] hover:bg-[var(--color-border-light)]"
                 >
                   {item}
                 </a>
@@ -71,7 +71,7 @@ export default function Header() {
                 <Link href="/register">
                   <Button variant="secondary">Create Account</Button>
                 </Link>
-                <Button className="col-span-2">Book Demo</Button>
+                <Button variant="secondary" className="col-span-2">Book Demo</Button>
               </div>
             </div>
           </motion.div>
