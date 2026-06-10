@@ -22,5 +22,3 @@ class User(Base):
 
     patient = relationship("Patient", back_populates="user",
                            uselist=False, cascade="all, delete-orphan")
-    provider = relationship("Provider", back_populates="user",
-                            uselist=False, cascade="all, delete-orphan")
