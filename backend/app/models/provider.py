@@ -20,3 +20,5 @@ class Provider(Base):
         timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="provider")
+    
+    slots = relationship("AppointmentSlot", back_populates="provider")

@@ -3,7 +3,6 @@ import enum
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-
 from app.db.database import Base
 
 class SlotStatus(str, enum.Enum):
@@ -12,7 +11,7 @@ class SlotStatus(str, enum.Enum):
     blocked = "blocked"
 
 class AppointmentSlot(Base):
-    _tablename_ = "appointment_slots"
+    __tablename__ = "appointment_slots"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
