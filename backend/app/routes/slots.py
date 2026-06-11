@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from datetime import datetime, date, timedelta, time
-from typing import List
+from typing import List, Optional
 from app.db.session import get_db
 from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.provider import Provider
