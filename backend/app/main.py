@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from app.routes import auth
+from app.routes import auth, providers, services
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -12,16 +12,18 @@ app = FastAPI(
     description="API for managing clinic appointments and capacities",
     version="1.0.0"
 )
-# CORS 
+# CORS -- change * with values  in production!
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (not recommended for production)
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
 app.include_router(auth.router)
+app.include_router(providers.router)
+app.include_router(services.router)
 
 @app.get("/")
 def read_root():
