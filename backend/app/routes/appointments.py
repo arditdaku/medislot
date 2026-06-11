@@ -133,3 +133,56 @@ def my_appointments(
         query = query.filter(Appointment.status == status_filter)
 
     return query.order_by(Appointment.created_at.desc()).all()
+@router.delete(
+    "/{appointment_id}",
+    status_code=status.HTTP_200_OK,
+)
+def cancel_appointment(
+    appointment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    appointment = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id)
+        .with_for_update()
+        .first()
+    )
+
+    if appointment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Appointment not found",
+        )
+
+    is_admin = current_user.role == "admin"
+    patient_profile = current_user.patient
+    is_owner = (
+        patient_profile is not None
+        and appointment.patient_id == patient_profile.id
+    )
+
+    if not is_owner and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to cancel this appointment",
+        )
+
+    slot = (
+        db.query(AppointmentSlot)
+        .filter(AppointmentSlot.id == appointment.slot_id)
+        .with_for_update()
+        .first()
+    )
+    if slot:
+        slot.status = SlotStatus.available
+
+    appointment.status = AppointmentStatus.cancelled
+
+    db.commit()
+    db.refresh(appointment)
+
+    return {
+        "message": "Appointment cancelled successfully",
+        "appointment_id": str(appointment.id),
+    }
