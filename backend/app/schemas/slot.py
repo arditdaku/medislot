@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
-from app.models.appointment_slot import SlotStatus
+from app.models.slot import SlotStatus
 
 
 class SlotGenerate(BaseModel):

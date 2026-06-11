@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from app.core.config import settings
 from app.db.database import Base  # single Base, defined in database.py (SCRUM-38)
 
