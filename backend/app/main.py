@@ -4,7 +4,6 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.db.session import get_db
 
 app = FastAPI(
@@ -12,13 +11,13 @@ app = FastAPI(
     description="API for managing clinic appointments and capacities",
     version="1.0.0"
 )
-# CORS 
+# CORS -- change * with values  in production!
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (not recommended for production)
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
 app.include_router(auth.router)
