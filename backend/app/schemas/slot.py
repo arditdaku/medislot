@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 from app.models.slot import SlotStatus
@@ -6,8 +6,8 @@ from app.models.slot import SlotStatus
 
 class SlotGenerate(BaseModel):
     provider_id: int
-    start_time: datetime
-    end_time: datetime
+    date: date
+    slot_duration_minutes: int = 30
 
 
 class SlotResponse(BaseModel):
