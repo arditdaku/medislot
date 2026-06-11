@@ -23,7 +23,7 @@ class AppointmentSlot(Base):
         default=SlotStatus.available
     )
 
-    _table_args_ = (
+    __table_args__ = (
         Index("ix_slot_provider_start", "provider_id", "start_time"),
     )
 
