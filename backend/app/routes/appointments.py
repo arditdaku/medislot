@@ -5,9 +5,10 @@ Implements atomic slot booking using PostgreSQL row-level locking
 double-book the same slot.
 """
 from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.appointment import Appointment, AppointmentStatus
+from app.models.patient import Patient
 from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.user import User
 
@@ -102,6 +104,35 @@ def book_appointment(payload: BookingRequest, db: Session = Depends(get_db)):
         db.rollback()
         raise
 
+
+@router.get("/me", response_model=list[AppointmentResponse])
+def my_appointments(
+    status_filter: Optional[AppointmentStatus] = Query(None, alias="status"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the authenticated patient's own appointments.
+
+    ``get_current_user`` enforces a valid Bearer token (401 otherwise). The
+    user must have a patient profile; non-patients receive a 403. An optional
+    ``?status=`` query parameter filters by appointment status.
+    """
+    patient = (
+        db.query(Patient)
+        .filter(Patient.user_id == current_user.id)
+        .first()
+    )
+    if patient is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only patients can view appointment history",
+        )
+
+    query = db.query(Appointment).filter(Appointment.patient_id == patient.id)
+    if status_filter is not None:
+        query = query.filter(Appointment.status == status_filter)
+
+    return query.order_by(Appointment.created_at.desc()).all()
 @router.delete(
     "/{appointment_id}",
     status_code=status.HTTP_200_OK,
