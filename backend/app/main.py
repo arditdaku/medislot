@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from app.routes import auth
+from app.routes import auth, slots
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(slots.router)
 
 @app.get("/")
 def read_root():
