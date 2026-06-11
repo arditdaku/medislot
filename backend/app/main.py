@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+
 from app.routes import auth
 from app.routes import slots
 from app.routes import appointments
+
+
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
