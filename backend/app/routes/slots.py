@@ -2,7 +2,6 @@ from datetime import date, datetime, time, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-
 from app.db.session import get_db
 from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.provider import Provider
