@@ -1,14 +1,14 @@
-from datetime import date, datetime, time, timedelta
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime, date, timedelta, time
+from typing import List
 from app.db.session import get_db
 from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.provider import Provider
 from app.schemas.slot import SlotGenerate, SlotResponse
 from app.routes.auth import require_role
 
-router = APIRouter(prefix="/slots", tags=["slots"])
+router = APIRouter()
 
 
 @router.get("/", response_model=List[SlotResponse])
@@ -35,7 +35,6 @@ def get_slots(
         query = query.filter(AppointmentSlot.status == SlotStatus.available)
 
     return query.all()
-
 
 @router.post("/slots/generate", response_model=List[SlotResponse])
 def generate_slots(
