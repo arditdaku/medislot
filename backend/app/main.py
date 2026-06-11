@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
-from app.routes import auth, providers, services
+from app.routes import auth
+from app.routes import slots
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.db.session import get_db
 
 app = FastAPI(
@@ -22,8 +22,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-app.include_router(providers.router)
-app.include_router(services.router)
+app.include_router(slots.router)
 
 @app.get("/")
 def read_root():
