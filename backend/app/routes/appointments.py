@@ -17,6 +17,7 @@ from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.patient import Patient
+from app.models.service import Service
 from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.user import User
 
@@ -57,8 +58,28 @@ def book_appointment(payload: BookingRequest, db: Session = Depends(get_db)):
     ``appointments.slot_id`` is a second, database-level guarantee.
     """
     try:
-        # Row-level lock: blocks other transactions touching this slot until
-        # we commit or roll back. This is what makes the booking atomic.
+        patient = (
+            db.query(Patient.id)
+            .filter(Patient.id == payload.patient_id)
+            .first()
+        )
+        if patient is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Patient not found",
+            )
+
+        service = (
+            db.query(Service.id)
+            .filter(Service.id == payload.service_id)
+            .first()
+        )
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found",
+            )
+
         slot = (
             db.query(AppointmentSlot)
             .filter(AppointmentSlot.id == payload.slot_id)
@@ -87,14 +108,13 @@ def book_appointment(payload: BookingRequest, db: Session = Depends(get_db)):
         slot.status = SlotStatus.booked
 
         db.add(appointment)
-        db.commit()  # commits the slot update + appointment, releasing the lock
+        db.commit()
         db.refresh(appointment)
         return appointment
     except HTTPException:
         db.rollback()
         raise
     except IntegrityError:
-        # Backstop: UNIQUE(slot_id) was violated by a racing transaction.
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -133,6 +153,8 @@ def my_appointments(
         query = query.filter(Appointment.status == status_filter)
 
     return query.order_by(Appointment.created_at.desc()).all()
+
+
 @router.delete(
     "/{appointment_id}",
     status_code=status.HTTP_200_OK,
