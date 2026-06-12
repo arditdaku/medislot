@@ -43,7 +43,26 @@ export default function Page() {
     </article>
   ))}
 </section>
-
     </main>
   );
 }
+
+<section className="mb-8 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm">
+  <div className="mb-4">
+    <h2 className="text-xl font-semibold">Try AI booking</h2>
+    <p className="mt-1 text-sm text-muted-foreground">
+      Describe your symptoms or preferred doctor and we will suggest a booking option.
+    </p>
+  </div>
+
+  <div className="flex flex-col gap-3 md:flex-row">
+    <input
+      className="min-h-11 flex-1 rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
+      placeholder="e.g. tooth pain next Tuesday morning"
+      type="text"
+    />
+    <button className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+      Try AI booking
+    </button>
+  </div>
+</section>
