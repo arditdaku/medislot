@@ -2,6 +2,24 @@ const patient = {
   name: "Ereza",
 };
 
+const summaryCards = [
+  {
+    title: "Upcoming appointments",
+    value: "2",
+    description: "Scheduled visits",
+  },
+  {
+    title: "Total visits",
+    value: "8",
+    description: "Completed appointments",
+  },
+  {
+    title: "Loyalty status",
+    value: "Gold",
+    description: "Priority booking enabled",
+  },
+];
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
@@ -12,6 +30,20 @@ export default function Page() {
           Track your appointments, visits, and booking options in one place.
         </p>
       </section>
+
+      <section className="mb-8 grid gap-4 md:grid-cols-3">
+  {summaryCards.map((card) => (
+    <article
+      key={card.title}
+      className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm"
+    >
+      <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
+      <p className="mt-3 text-3xl font-bold text-primary">{card.value}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{card.description}</p>
+    </article>
+  ))}
+</section>
+
     </main>
   );
 }
