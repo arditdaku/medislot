@@ -25,7 +25,6 @@ router = APIRouter(prefix="/appointments", tags=["appointments"])
 
 class BookingRequest(BaseModel):
     slot_id: UUID
-    patient_id: UUID
     service_id: int
 
 
@@ -42,11 +41,15 @@ class AppointmentResponse(BaseModel):
 
 
 @router.post(
-    "/book",
+    "",
     response_model=AppointmentResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def book_appointment(payload: BookingRequest, db: Session = Depends(get_db)):
+def book_appointment(
+    payload: BookingRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Atomically book an available slot.
 
     The slot row is locked with ``SELECT ... FOR UPDATE`` for the whole
@@ -56,6 +59,17 @@ def book_appointment(payload: BookingRequest, db: Session = Depends(get_db)):
     available and receives a ``409``. The UNIQUE constraint on
     ``appointments.slot_id`` is a second, database-level guarantee.
     """
+    patient = (
+        db.query(Patient)
+        .filter(Patient.user_id == current_user.id)
+        .first()
+    )
+    if patient is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only patients can book appointments",
+        )
+
     try:
         # Row-level lock: blocks other transactions touching this slot until
         # we commit or roll back. This is what makes the booking atomic.
@@ -79,7 +93,7 @@ def book_appointment(payload: BookingRequest, db: Session = Depends(get_db)):
             )
 
         appointment = Appointment(
-            patient_id=payload.patient_id,
+            patient_id=patient.id,
             slot_id=slot.id,
             service_id=payload.service_id,
             status=AppointmentStatus.confirmed,
