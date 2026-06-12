@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from app.routes import auth
 from app.routes import slots
 from app.routes import appointments
+from app.routes import services
+from app.routes import providers
 
 
 from fastapi import Depends, FastAPI
@@ -19,15 +21,18 @@ app = FastAPI(
 # CORS -- change * with values  in production!
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  
-    allow_headers=["*"],  
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth.router)
 app.include_router(slots.router)
 app.include_router(appointments.router)
+app.include_router(providers.router)
+app.include_router(services.router)
+
 
 @app.get("/")
 def read_root():
