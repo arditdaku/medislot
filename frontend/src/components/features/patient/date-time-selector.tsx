@@ -3,59 +3,14 @@
 import { useEffect, useState } from "react";
 
 import Card from "@/components/ui/card";
+import { getSlots } from "@/lib/api/slots";
+import type { Slot } from "@/types/api";
 
-// Local mirror of the backend SlotResponse schema (backend/app/schemas/slot.py).
-// Kept local on purpose so this component doesn't depend on a shared types file
-// owned by another ticket. start_time / end_time are ISO datetime strings.
-type SlotStatus = "available" | "booked" | "blocked";
-
-type Slot = {
-  id: string;
-  provider_id: number;
-  start_time: string;
-  end_time: string;
-  status: SlotStatus;
-};
-
-// Build a naive local ISO datetime string (no timezone shift), e.g.
-// "2026-06-12T08:30:00" — matching what the API serializes for a slot.
-function toLocalIso(year: number, month: number, day: number, hours: number, minutes: number): string {
+// Format a Date as "YYYY-MM-DD" using LOCAL year/month/day (not toISOString,
+// which would shift across the UTC day boundary).
+function toLocalDateStr(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${year}-${pad(month + 1)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00`;
-}
-
-// TEMPORARY MOCK DATA. Replace this function body with the SCRUM-77 API client call to GET /slots when it lands. Do not move this into lib/api-client.ts.
-async function fetchSlots(date: Date): Promise<Slot[]> {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
-  const daySeed = day; // deterministic-but-varied statuses per date
-
-  const slots: Slot[] = [];
-  let index = 0;
-  // 30-minute slots from 08:00 up to (but not including) 17:00.
-  for (let minutesOfDay = 8 * 60; minutesOfDay < 17 * 60; minutesOfDay += 30) {
-    const startHours = Math.floor(minutesOfDay / 60);
-    const startMinutes = minutesOfDay % 60;
-    const endMinutesOfDay = minutesOfDay + 30;
-    const endHours = Math.floor(endMinutesOfDay / 60);
-    const endMinutes = endMinutesOfDay % 60;
-
-    // Most available, with a few booked/blocked so every visual state shows.
-    const cycle = (index + daySeed) % 7;
-    const status: SlotStatus = cycle === 2 ? "booked" : cycle === 5 ? "blocked" : "available";
-
-    slots.push({
-      id: `${year}-${month + 1}-${day}-${index}`,
-      provider_id: 1,
-      start_time: toLocalIso(year, month, day, startHours, startMinutes),
-      end_time: toLocalIso(year, month, day, endHours, endMinutes),
-      status,
-    });
-    index += 1;
-  }
-
-  return slots;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -73,7 +28,11 @@ function startHourOf(slot: Slot): number {
   return Number(slot.start_time.slice(11, 13));
 }
 
-export default function DateTimeSelector() {
+interface DateTimeSelectorProps {
+  providerId: number;
+}
+
+export default function DateTimeSelector({ providerId }: DateTimeSelectorProps) {
   const today = new Date();
   const year = today.getFullYear();
   const month = today.getMonth();
@@ -91,9 +50,15 @@ export default function DateTimeSelector() {
     setLoading(true);
     setSelectedSlotId(null);
 
-    fetchSlots(selectedDate)
+    const dateStr = toLocalDateStr(selectedDate);
+
+    getSlots(providerId, dateStr)
       .then((result) => {
         if (!cancelled) setSlots(result);
+      })
+      .catch(() => {
+        // On error, fall back to an empty state rather than crashing.
+        if (!cancelled) setSlots([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -102,7 +67,7 @@ export default function DateTimeSelector() {
     return () => {
       cancelled = true;
     };
-  }, [selectedDate]);
+  }, [selectedDate, providerId]);
 
   // Calendar grid for the current month.
   const firstWeekday = new Date(year, month, 1).getDay();
