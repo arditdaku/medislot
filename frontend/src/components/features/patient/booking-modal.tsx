@@ -1,3 +1,5 @@
+import { Calendar, Clock, Stethoscope, User } from "lucide-react";
+
 type BookingModalProps = {
   service: {
     name: string;
@@ -26,6 +28,13 @@ export default function BookingModal({
   duration,
   patient,
 }: BookingModalProps) {
+  const doctorInitials = doctor.name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <section className="rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
       <div className="mb-6">
@@ -37,9 +46,12 @@ export default function BookingModal({
 
       <div className="space-y-4">
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Service
-          </p>
+          <div className="flex items-center gap-2">
+            <Stethoscope className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              Service
+            </p>
+          </div>
           <p className="mt-2 font-semibold">{service.name}</p>
           <p className="text-sm text-muted-foreground">{service.department}</p>
         </div>
@@ -48,29 +60,47 @@ export default function BookingModal({
           <p className="text-xs font-semibold uppercase text-muted-foreground">
             Doctor
           </p>
-          <p className="mt-2 font-semibold">{doctor.name}</p>
-          <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+              {doctorInitials}
+            </div>
+            <div>
+              <p className="font-semibold">{doctor.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {doctor.specialty}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Date
-          </p>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              Date
+            </p>
+          </div>
           <p className="mt-2 font-semibold">{date}</p>
         </div>
 
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Time
-          </p>
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              Time
+            </p>
+          </div>
           <p className="mt-2 font-semibold">{time}</p>
           <p className="text-sm text-muted-foreground">{duration}</p>
         </div>
 
         <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Patient
-          </p>
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              Patient
+            </p>
+          </div>
           <p className="mt-2 font-semibold">{patient.name}</p>
           <p className="text-sm text-muted-foreground">{patient.email}</p>
         </div>
