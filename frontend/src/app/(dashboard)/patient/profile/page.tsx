@@ -1,3 +1,17 @@
-export default function Page() {
-  return <h1 style={{ fontSize: 24, fontWeight: 700 }}>Patient · Profile</h1>;
+"use client";
+
+export default function PatientProfilePage() {
+  return (
+    <main className="min-h-screen bg-background px-6 py-8 text-foreground">
+      <section className="mx-auto max-w-3xl">
+        <div className="mb-8">
+          <p className="text-sm font-medium text-primary">Patient Profile</p>
+          <h1 className="mt-2 text-3xl font-bold">My profile</h1>
+          <p className="mt-2 text-muted-foreground">
+            View and update your personal information.
+          </p>
+        </div>
+      </section>
+    </main>
+  );
 }
