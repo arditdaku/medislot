@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type PatientProfile = {
   fullName: string;
@@ -20,6 +20,35 @@ const emptyProfile: PatientProfile = {
 
 export default function PatientProfilePage() {
   const [profile, setProfile] = useState<PatientProfile>(emptyProfile);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+  useEffect(() => {
+    const fetchPatientProfile = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/patients/me`);
+
+        if (!response.ok) {
+          throw new Error("Failed to load patient profile");
+        }
+
+        const data = await response.json();
+
+        setProfile({
+          fullName: data.fullName ?? data.full_name ?? "",
+          phone: data.phone ?? "",
+          address: data.address ?? "",
+          dateOfBirth: data.dateOfBirth ?? data.date_of_birth ?? "",
+          gender: data.gender ?? "",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPatientProfile();
+  }, [apiUrl]);
 
   const updateField = (field: keyof PatientProfile, value: string) => {
     setProfile((currentProfile) => ({
@@ -40,81 +69,91 @@ export default function PatientProfilePage() {
         </div>
 
         <form className="rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
-          <div className="space-y-5">
-            <div>
-              <label className="text-sm font-medium" htmlFor="fullName">
-                Full name
-              </label>
-              <input
-                id="fullName"
-                value={profile.fullName}
-                onChange={(event) => updateField("fullName", event.target.value)}
-                className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
-                type="text"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium" htmlFor="phone">
-                Phone
-              </label>
-              <input
-                id="phone"
-                value={profile.phone}
-                onChange={(event) => updateField("phone", event.target.value)}
-                className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
-                type="tel"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium" htmlFor="address">
-                Address
-              </label>
-              <input
-                id="address"
-                value={profile.address}
-                onChange={(event) => updateField("address", event.target.value)}
-                className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
-                type="text"
-              />
-            </div>
-
-            <div className="grid gap-5 md:grid-cols-2">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading profile...</p>
+          ) : (
+            <div className="space-y-5">
               <div>
-                <label className="text-sm font-medium" htmlFor="dateOfBirth">
-                  Date of birth
+                <label className="text-sm font-medium" htmlFor="fullName">
+                  Full name
                 </label>
                 <input
-                  id="dateOfBirth"
-                  value={profile.dateOfBirth}
+                  id="fullName"
+                  value={profile.fullName}
                   onChange={(event) =>
-                    updateField("dateOfBirth", event.target.value)
+                    updateField("fullName", event.target.value)
                   }
                   className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
-                  type="date"
+                  type="text"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium" htmlFor="gender">
-                  Gender
+                <label className="text-sm font-medium" htmlFor="phone">
+                  Phone
                 </label>
-                <select
-                  id="gender"
-                  value={profile.gender}
-                  onChange={(event) => updateField("gender", event.target.value)}
+                <input
+                  id="phone"
+                  value={profile.phone}
+                  onChange={(event) => updateField("phone", event.target.value)}
                   className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
-                >
-                  <option value="">Select gender</option>
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                  <option value="other">Other</option>
-                  <option value="prefer_not_to_say">Prefer not to say</option>
-                </select>
+                  type="tel"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium" htmlFor="address">
+                  Address
+                </label>
+                <input
+                  id="address"
+                  value={profile.address}
+                  onChange={(event) =>
+                    updateField("address", event.target.value)
+                  }
+                  className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
+                  type="text"
+                />
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium" htmlFor="dateOfBirth">
+                    Date of birth
+                  </label>
+                  <input
+                    id="dateOfBirth"
+                    value={profile.dateOfBirth}
+                    onChange={(event) =>
+                      updateField("dateOfBirth", event.target.value)
+                    }
+                    className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
+                    type="date"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium" htmlFor="gender">
+                    Gender
+                  </label>
+                  <select
+                    id="gender"
+                    value={profile.gender}
+                    onChange={(event) =>
+                      updateField("gender", event.target.value)
+                    }
+                    className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
+                  >
+                    <option value="">Select gender</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </form>
       </section>
     </main>
