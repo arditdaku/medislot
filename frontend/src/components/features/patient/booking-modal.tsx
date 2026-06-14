@@ -28,6 +28,7 @@ export default function BookingModal({
   duration,
   patient,
   onBackToEdit,
+  onSuccess,
 }: BookingModalProps) {
   const doctorInitials = doctor.name
     .split(" ")
@@ -35,6 +36,32 @@ export default function BookingModal({
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const handleConfirmBooking = async () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+    const response = await fetch(`${apiUrl}/appointments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        service,
+        doctor,
+        date,
+        time,
+        duration,
+        patient,
+        status: "pending",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to confirm booking");
+    }
+
+    onSuccess();
+  };
 
   return (
     <section className="rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
@@ -132,6 +159,7 @@ export default function BookingModal({
 
         <button
           type="button"
+          onClick={handleConfirmBooking}
           className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
         >
           Confirm Booking
