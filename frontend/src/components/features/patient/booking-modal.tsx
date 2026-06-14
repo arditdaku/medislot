@@ -27,6 +27,7 @@ export default function BookingModal({
   time,
   duration,
   patient,
+  onBackToEdit,
 }: BookingModalProps) {
   const doctorInitials = doctor.name
     .split(" ")
@@ -114,6 +115,27 @@ export default function BookingModal({
             Pending
           </span>
         </div>
+      </div>
+
+      <p className="mt-5 rounded-md bg-primary/10 px-4 py-3 text-sm font-medium text-primary">
+        Free cancellation up to 24 hours
+      </p>
+
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={onBackToEdit}
+          className="rounded-md border border-border px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-muted"
+        >
+          Back to Edit
+        </button>
+
+        <button
+          type="button"
+          className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          Confirm Booking
+        </button>
       </div>
     </section>
   );
