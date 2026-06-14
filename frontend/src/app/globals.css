@@ -57,6 +57,10 @@
   --color-danger-light: #FEE2E2;
   --color-info: #5bc0de;
   --color-info-light: #E6F4FB;
+
+  /*  In-progress - Purple  */
+  --color-purple: #6D28D9;
+  --color-purple-light: #EDE9FE;
 }
 
 /*  Global Defaults  */
