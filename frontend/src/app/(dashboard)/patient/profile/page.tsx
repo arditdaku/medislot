@@ -10,6 +10,11 @@ type PatientProfile = {
   gender: string;
 };
 
+type ToastState = {
+  type: "success" | "error";
+  message: string;
+} | null;
+
 const emptyProfile: PatientProfile = {
   fullName: "",
   phone: "",
@@ -21,6 +26,7 @@ const emptyProfile: PatientProfile = {
 export default function PatientProfilePage() {
   const [profile, setProfile] = useState<PatientProfile>(emptyProfile);
   const [errors, setErrors] = useState<Partial<PatientProfile>>({});
+  const [toast, setToast] = useState<ToastState>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -43,6 +49,11 @@ export default function PatientProfilePage() {
           address: data.address ?? "",
           dateOfBirth: data.dateOfBirth ?? data.date_of_birth ?? "",
           gender: data.gender ?? "",
+        });
+      } catch {
+        setToast({
+          type: "error",
+          message: "Could not load your profile. Please try again.",
         });
       } finally {
         setIsLoading(false);
@@ -94,8 +105,13 @@ export default function PatientProfilePage() {
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setToast(null);
 
     if (!validateForm()) {
+      setToast({
+        type: "error",
+        message: "Please fill in all required fields.",
+      });
       return;
     }
 
@@ -119,6 +135,16 @@ export default function PatientProfilePage() {
       if (!response.ok) {
         throw new Error("Failed to save patient profile");
       }
+
+      setToast({
+        type: "success",
+        message: "Profile saved successfully.",
+      });
+    } catch {
+      setToast({
+        type: "error",
+        message: "Could not save your profile. Please try again.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -134,6 +160,18 @@ export default function PatientProfilePage() {
             View and update your personal information.
           </p>
         </div>
+
+        {toast && (
+          <div
+            className={`mb-6 rounded-md border px-4 py-3 text-sm font-medium ${
+              toast.type === "success"
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-destructive/30 bg-destructive/10 text-destructive"
+            }`}
+          >
+            {toast.message}
+          </div>
+        )}
 
         <form
           onSubmit={handleSave}
