@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type PatientProfile = {
   fullName: string;
@@ -22,6 +22,7 @@ export default function PatientProfilePage() {
   const [profile, setProfile] = useState<PatientProfile>(emptyProfile);
   const [errors, setErrors] = useState<Partial<PatientProfile>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -91,6 +92,38 @@ export default function PatientProfilePage() {
     return Object.keys(nextErrors).length === 0;
   };
 
+  const handleSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await fetch(`${apiUrl}/patients/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: profile.fullName,
+          phone: profile.phone,
+          address: profile.address,
+          date_of_birth: profile.dateOfBirth,
+          gender: profile.gender,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save patient profile");
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
       <section className="mx-auto max-w-3xl">
@@ -102,7 +135,10 @@ export default function PatientProfilePage() {
           </p>
         </div>
 
-        <form className="rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
+        <form
+          onSubmit={handleSave}
+          className="rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm"
+        >
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading profile...</p>
           ) : (
@@ -210,6 +246,16 @@ export default function PatientProfilePage() {
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  disabled={isSaving}
+                  type="submit"
+                  className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSaving ? "Saving..." : "Save changes"}
+                </button>
               </div>
             </div>
           )}
