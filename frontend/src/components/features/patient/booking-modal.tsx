@@ -1,170 +1,149 @@
-import { Calendar, Clock, Stethoscope, User } from "lucide-react";
+"use client";
 
-type BookingModalProps = {
-  service: {
-    name: string;
-    department: string;
-  };
-  doctor: {
-    name: string;
-    specialty: string;
-  };
+import { ArrowRight, Calendar, Clock, Heart, User } from "lucide-react";
+
+export type BookingReview = {
+  service: { name: string; department: string };
+  doctor: { name: string; specialty: string };
   date: string;
   time: string;
-  duration: string;
-  patient: {
-    name: string;
-    email: string;
-  };
-  onBackToEdit: () => void;
-  onSuccess: () => void;
+  durationMinutes: number;
+  patient: { name: string; email: string };
+  /** Hardcoded until `services.price` exists in the schema. */
+  fee: number;
 };
+
+type BookingModalProps = BookingReview & {
+  submitting: boolean;
+  error?: string | null;
+  onBackToEdit: () => void;
+  onConfirm: () => void;
+};
+
+function initials(name: string): string {
+  const parts = name.replace(/^Dr\.?\s*/i, "").trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
+function Row({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-[var(--color-primary-50)] text-[var(--color-primary)]">
+        {icon}
+      </span>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">{label}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function BookingModal({
   service,
   doctor,
   date,
   time,
-  duration,
+  durationMinutes,
   patient,
+  fee,
+  submitting,
+  error,
   onBackToEdit,
-  onSuccess,
+  onConfirm,
 }: BookingModalProps) {
-  const doctorInitials = doctor.name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-  const handleConfirmBooking = async () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-    const response = await fetch(`${apiUrl}/appointments`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        service,
-        doctor,
-        date,
-        time,
-        duration,
-        patient,
-        status: "pending",
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to confirm booking");
-    }
-
-    onSuccess();
-  };
-
   return (
-    <section className="rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold">Review booking</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Confirm the details before booking your appointment.
+    <div>
+      <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Review &amp; confirm</h2>
+      <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+        Double-check the details below before confirming.
+      </p>
+
+      <div className="mt-6 rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm">
+        <div className="space-y-5">
+          <Row icon={<Heart size={18} />} label="Service">
+            <p className="font-semibold text-[var(--color-text-primary)]">{service.name}</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">{service.department}</p>
+          </Row>
+
+          <Row icon={<span className="text-xs font-bold">{initials(doctor.name)}</span>} label="Doctor">
+            <p className="font-semibold text-[var(--color-text-primary)]">{doctor.name}</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">{doctor.specialty}</p>
+          </Row>
+
+          <Row icon={<Calendar size={18} />} label="Date">
+            <p className="font-semibold text-[var(--color-text-primary)]">{date}</p>
+          </Row>
+
+          <Row icon={<Clock size={18} />} label="Time">
+            <p className="font-semibold text-[var(--color-text-primary)]">
+              {time} ({durationMinutes} min)
+            </p>
+          </Row>
+
+          <hr className="border-dashed border-[var(--color-border)]" />
+
+          <Row icon={<User size={18} />} label="Patient">
+            <p className="font-semibold text-[var(--color-text-primary)]">{patient.name}</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">{patient.email}</p>
+          </Row>
+
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Status</p>
+              <p className="font-semibold text-[var(--color-text-primary)]">Will be confirmed</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning-light)] px-3 py-1 text-xs font-semibold text-[var(--color-warning)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-warning)]" />
+              Pending
+            </span>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Consultation fee</p>
+            <p className="text-xl font-bold text-[var(--color-text-primary)]">${fee}</p>
+          </div>
+        </div>
+
+        <p className="mt-6 text-xs text-[var(--color-text-muted)]">
+          Free cancellation up to 24 hours before your appointment. By confirming, you agree to MediSlot&apos;s
+          clinic policies.
         </p>
       </div>
 
-      <div className="space-y-4">
-        <div className="rounded-lg border border-border bg-background p-4">
-          <div className="flex items-center gap-2">
-            <Stethoscope className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase text-muted-foreground">
-              Service
-            </p>
-          </div>
-          <p className="mt-2 font-semibold">{service.name}</p>
-          <p className="text-sm text-muted-foreground">{service.department}</p>
-        </div>
+      {error && (
+        <p className="mt-4 rounded-xl border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-4 py-3 text-sm font-medium text-[var(--color-danger)]">
+          {error}
+        </p>
+      )}
 
-        <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Doctor
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-              {doctorInitials}
-            </div>
-            <div>
-              <p className="font-semibold">{doctor.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {doctor.specialty}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border bg-background p-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase text-muted-foreground">
-              Date
-            </p>
-          </div>
-          <p className="mt-2 font-semibold">{date}</p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-background p-4">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase text-muted-foreground">
-              Time
-            </p>
-          </div>
-          <p className="mt-2 font-semibold">{time}</p>
-          <p className="text-sm text-muted-foreground">{duration}</p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-background p-4">
-          <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase text-muted-foreground">
-              Patient
-            </p>
-          </div>
-          <p className="mt-2 font-semibold">{patient.name}</p>
-          <p className="text-sm text-muted-foreground">{patient.email}</p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-background p-4">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">
-            Status
-          </p>
-          <p className="mt-2 font-semibold">Will be confirmed</p>
-          <span className="mt-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-            Pending
-          </span>
-        </div>
-      </div>
-
-      <p className="mt-5 rounded-md bg-primary/10 px-4 py-3 text-sm font-medium text-primary">
-        Free cancellation up to 24 hours
-      </p>
-
-      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
           onClick={onBackToEdit}
-          className="rounded-md border border-border px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-muted"
+          disabled={submitting}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--color-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-bg-muted)] disabled:opacity-50"
         >
           Back to Edit
         </button>
-
         <button
           type="button"
-          onClick={handleConfirmBooking}
-          className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+          onClick={onConfirm}
+          disabled={submitting}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-[var(--color-white)] transition hover:bg-[var(--color-primary-600)] disabled:opacity-60"
         >
-          Confirm Booking
+          {submitting ? "Confirming…" : "Confirm Booking"}
+          {!submitting && <ArrowRight size={16} />}
         </button>
       </div>
-    </section>
+    </div>
   );
 }

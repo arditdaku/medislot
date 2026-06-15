@@ -8,10 +8,10 @@ from app.models.provider import Provider
 from app.schemas.slot import SlotGenerate, SlotResponse
 from app.routes.auth import require_role
 
-router = APIRouter()
+router = APIRouter(prefix="/slots", tags=["slots"])
 
 
-@router.get("/", response_model=List[SlotResponse])
+@router.get("", response_model=List[SlotResponse])
 def get_slots(
     provider_id: Optional[int] = Query(None),
     date: Optional[date] = Query(None),
@@ -29,14 +29,14 @@ def get_slots(
             AppointmentSlot.start_time <= datetime.combine(date, time.max),
         )
 
+    # When no status is given, return every slot (available + booked + blocked)
+    # so callers can show booked times as disabled rather than hiding them.
     if status is not None:
         query = query.filter(AppointmentSlot.status == status)
-    else:
-        query = query.filter(AppointmentSlot.status == SlotStatus.available)
 
-    return query.all()
+    return query.order_by(AppointmentSlot.start_time).all()
 
-@router.post("/slots/generate", response_model=List[SlotResponse])
+@router.post("/generate", response_model=List[SlotResponse])
 def generate_slots(
     request: SlotGenerate,
     db: Session = Depends(get_db),

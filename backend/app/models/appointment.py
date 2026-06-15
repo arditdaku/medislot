@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.db.database import Base
 
@@ -27,7 +28,7 @@ class Appointment(Base):
     status = Column(
         Enum(AppointmentStatus, name="appointment_status"),
         nullable=False,
-        default=AppointmentStatus.confirmed,
+        default=AppointmentStatus.waiting,
     )
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
@@ -36,3 +37,6 @@ class Appointment(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    slot = relationship("AppointmentSlot")
+    service = relationship("Service")

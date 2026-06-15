@@ -13,6 +13,7 @@ export default function PatientLayout({
     const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (!isAuthenticated()) {
       router.replace("/login");
       return;
@@ -22,7 +23,7 @@ export default function PatientLayout({
     }
   }, [router]);
 
-  if (!isAuthenticated() || getRole() !== "patient") return null;
   if (!mounted) return null;
+  if (!isAuthenticated() || getRole() !== "patient") return null;
   return <>{children}</>;
 }
