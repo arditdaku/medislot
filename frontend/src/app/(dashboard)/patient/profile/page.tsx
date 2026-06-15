@@ -20,6 +20,7 @@ const emptyProfile: PatientProfile = {
 
 export default function PatientProfilePage() {
   const [profile, setProfile] = useState<PatientProfile>(emptyProfile);
+  const [errors, setErrors] = useState<Partial<PatientProfile>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -55,6 +56,39 @@ export default function PatientProfilePage() {
       ...currentProfile,
       [field]: value,
     }));
+
+    setErrors((currentErrors) => ({
+      ...currentErrors,
+      [field]: "",
+    }));
+  };
+
+  const validateForm = () => {
+    const nextErrors: Partial<PatientProfile> = {};
+
+    if (!profile.fullName.trim()) {
+      nextErrors.fullName = "Full name is required.";
+    }
+
+    if (!profile.phone.trim()) {
+      nextErrors.phone = "Phone is required.";
+    }
+
+    if (!profile.address.trim()) {
+      nextErrors.address = "Address is required.";
+    }
+
+    if (!profile.dateOfBirth.trim()) {
+      nextErrors.dateOfBirth = "Date of birth is required.";
+    }
+
+    if (!profile.gender.trim()) {
+      nextErrors.gender = "Gender is required.";
+    }
+
+    setErrors(nextErrors);
+
+    return Object.keys(nextErrors).length === 0;
   };
 
   return (
@@ -86,6 +120,11 @@ export default function PatientProfilePage() {
                   className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
                   type="text"
                 />
+                {errors.fullName && (
+                  <p className="mt-1 text-sm text-destructive">
+                    {errors.fullName}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -99,6 +138,11 @@ export default function PatientProfilePage() {
                   className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
                   type="tel"
                 />
+                {errors.phone && (
+                  <p className="mt-1 text-sm text-destructive">
+                    {errors.phone}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -114,6 +158,11 @@ export default function PatientProfilePage() {
                   className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
                   type="text"
                 />
+                {errors.address && (
+                  <p className="mt-1 text-sm text-destructive">
+                    {errors.address}
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
@@ -130,6 +179,11 @@ export default function PatientProfilePage() {
                     className="mt-2 min-h-11 w-full rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
                     type="date"
                   />
+                  {errors.dateOfBirth && (
+                    <p className="mt-1 text-sm text-destructive">
+                      {errors.dateOfBirth}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -150,6 +204,11 @@ export default function PatientProfilePage() {
                     <option value="other">Other</option>
                     <option value="prefer_not_to_say">Prefer not to say</option>
                   </select>
+                  {errors.gender && (
+                    <p className="mt-1 text-sm text-destructive">
+                      {errors.gender}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
