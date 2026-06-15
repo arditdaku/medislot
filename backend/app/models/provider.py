@@ -20,5 +20,10 @@ class Provider(Base):
         timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="provider")
-    
+
     slots = relationship("AppointmentSlot", back_populates="provider")
+
+    @property
+    def full_name(self) -> str:
+        """The doctor's display name, sourced from the linked user."""
+        return self.user.full_name if self.user else ""

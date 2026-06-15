@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getMyAppointments, cancelAppointment } from "@/lib/api/appointments";
-import type { Appointment, AppointmentStatus } from "@/types/api";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getMyAppointments,
+  cancelAppointment,
+  rescheduleAppointment,
+} from "@/lib/api/appointments";
+import DateTimeSelector from "@/components/features/patient/date-time-selector";
+import type { Appointment, AppointmentStatus, Slot } from "@/types/api";
 
 /* ------------------------------------------------------------------ *
  * My Appointments (SCRUM-82)
@@ -22,6 +27,8 @@ type AppointmentView = {
   id: string;
   doctorName: string;
   specialty: string;
+  /** Provider id — needed to load the doctor's slots when rescheduling. */
+  providerId: number | null;
   /** Slot start time as an ISO 8601 string. */
   startTime: string;
   clinicName: string;
@@ -95,7 +102,7 @@ function formatTime(iso: string): string {
 function toView(appt: Appointment): AppointmentView | null {
   const raw = appt as Appointment & {
     provider?: { full_name?: string; specialty?: string };
-    slot?: { start_time?: string };
+    slot?: { provider_id?: number; start_time?: string };
     clinic?: { name?: string };
   };
   if (!raw.provider?.full_name || !raw.slot?.start_time) return null;
@@ -103,58 +110,36 @@ function toView(appt: Appointment): AppointmentView | null {
     id: appt.id,
     doctorName: raw.provider.full_name,
     specialty: raw.provider.specialty ?? "—",
+    providerId: raw.slot.provider_id ?? null,
     startTime: raw.slot.start_time,
     clinicName: raw.clinic?.name ?? "—",
     status: appt.status,
   };
 }
 
-/** Demo data — remove once /appointments/me returns enriched appointments. */
-function buildMockAppointments(): AppointmentView[] {
-  const DAY = 24 * 60 * 60 * 1000;
-  const now = Date.now();
-  const iso = (offset: number) => new Date(now + offset).toISOString();
-  return [
-    { id: "mock-1", doctorName: "Dr. Arben Krasniqi", specialty: "Cardiology", startTime: iso(2 * DAY), clinicName: "MediSlot Central Clinic", status: "confirmed" },
-    { id: "mock-2", doctorName: "Dr. Elira Berisha", specialty: "General Medicine", startTime: iso(5 * DAY), clinicName: "Sunrise Family Health", status: "waiting" },
-    { id: "mock-3", doctorName: "Dr. Driton Hoxha", specialty: "Dermatology", startTime: iso(9 * DAY), clinicName: "MediSlot Central Clinic", status: "confirmed" },
-    { id: "mock-4", doctorName: "Dr. Vesa Gashi", specialty: "Pediatrics", startTime: iso(-3 * DAY), clinicName: "Sunrise Family Health", status: "completed" },
-    { id: "mock-5", doctorName: "Dr. Arben Krasniqi", specialty: "Cardiology", startTime: iso(-12 * DAY), clinicName: "MediSlot Central Clinic", status: "completed" },
-    { id: "mock-6", doctorName: "Dr. Leon Rexha", specialty: "Orthopedics", startTime: iso(-20 * DAY), clinicName: "Riverside Medical Center", status: "cancelled" },
-  ];
-}
-
 // ─── Page ───────────────────────────────────────────────────────────
 export default function MyAppointmentsPage() {
   const [appointments, setAppointments] = useState<AppointmentView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingMock, setUsingMock] = useState(false);
   // "now" is captured at load time (not during render) so the upcoming/past
   // split stays a pure computation.
   const [now, setNow] = useState(0);
   const [view, setView] = useState<"list" | "calendar">("list");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [detailsTarget, setDetailsTarget] = useState<AppointmentView | null>(null);
   const [cancelTarget, setCancelTarget] = useState<AppointmentView | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentView | null>(null);
 
   function applyAppointments(data: Appointment[]) {
     const mapped = data.map(toView).filter((v): v is AppointmentView => v !== null);
-    if (mapped.length > 0) {
-      setUsingMock(false);
-      setAppointments(mapped);
-    } else {
-      // IDs-only response (or empty) → demo with mock data.
-      setUsingMock(true);
-      setAppointments(buildMockAppointments());
-    }
+    setAppointments(mapped);
     setNow(Date.now());
   }
 
-  function fallbackToMock() {
-    setUsingMock(true);
-    setAppointments(buildMockAppointments());
+  function handleLoadError() {
+    setAppointments([]);
     setNow(Date.now());
   }
 
@@ -167,7 +152,7 @@ export default function MyAppointmentsPage() {
         if (!cancelled) applyAppointments(data);
       })
       .catch(() => {
-        if (!cancelled) fallbackToMock();
+        if (!cancelled) handleLoadError();
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -182,17 +167,9 @@ export default function MyAppointmentsPage() {
     try {
       applyAppointments(await getMyAppointments());
     } catch {
-      fallbackToMock();
+      handleLoadError();
     }
   }
-
-  // Close the open three-dots menu on any outside click.
-  useEffect(() => {
-    if (!openMenuId) return;
-    const close = () => setOpenMenuId(null);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [openMenuId]);
 
   const activeFilter = STATUS_FILTERS.find((f) => f.key === filter) ?? STATUS_FILTERS[0];
 
@@ -220,15 +197,8 @@ export default function MyAppointmentsPage() {
     if (!cancelTarget) return;
     setCancelling(true);
     try {
-      if (usingMock) {
-        // Demo mode: reflect the cancellation locally.
-        setAppointments((prev) =>
-          prev.map((a) => (a.id === cancelTarget.id ? { ...a, status: "cancelled" } : a)),
-        );
-      } else {
-        await cancelAppointment(cancelTarget.id); // DELETE /appointments/{id}
-        await refresh(); // refresh list
-      }
+      await cancelAppointment(cancelTarget.id); // DELETE /appointments/{id}
+      await refresh(); // refresh list
     } finally {
       setCancelling(false);
       setCancelTarget(null);
@@ -236,14 +206,13 @@ export default function MyAppointmentsPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8">
+    <div className="min-h-screen">
       {/* Header + view toggle */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-[var(--color-primary)]">Patient</p>
-          <h1 className="mt-1 text-3xl font-bold text-[var(--color-text-primary)]">My Appointments</h1>
+          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">My appointments</h1>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            View and manage your upcoming and past visits.
+            Manage your upcoming visits and review past appointments.
           </p>
         </div>
 
@@ -270,17 +239,9 @@ export default function MyAppointmentsPage() {
         </div>
       </div>
 
-      {usingMock && (
-        <p className="mt-4 rounded-xl border border-[var(--color-warning-light)] bg-[var(--color-warning-light)] px-4 py-2 text-xs font-medium text-[var(--color-text-secondary)]">
-          Showing sample data — live appointments will appear once the
-          <code className="mx-1">/appointments/me</code>
-          endpoint returns provider, slot and clinic details.
-        </p>
-      )}
-
-      {/* Search */}
-      <div className="mt-6">
-        <div className="relative max-w-md">
+      {/* Search + filter pills */}
+      <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-[var(--color-border)] bg-white p-4 lg:flex-row lg:items-center">
+        <div className="relative flex-1">
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[var(--color-text-muted)]">
             <SearchIcon />
           </span>
@@ -288,31 +249,30 @@ export default function MyAppointmentsPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by doctor name or specialty"
-            className="min-h-11 w-full rounded-full border border-[var(--color-border)] bg-white pl-10 pr-4 text-sm outline-none transition focus:border-[var(--color-primary)]"
+            placeholder="Search by doctor or specialty"
+            className="min-h-11 w-full rounded-full border border-[var(--color-border)] bg-[var(--color-bg-secondary)] pl-10 pr-4 text-sm outline-none transition focus:border-[var(--color-primary)]"
           />
         </div>
-      </div>
 
-      {/* Status filter pills */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((f) => {
-          const active = f.key === filter;
-          return (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setFilter(f.key)}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                active
-                  ? "bg-[var(--color-primary)] text-[var(--color-white)]"
-                  : "border border-[var(--color-border)] bg-white text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-50)]"
-              }`}
-            >
-              {f.label}
-            </button>
-          );
-        })}
+        <div className="flex flex-wrap gap-2">
+          {STATUS_FILTERS.map((f) => {
+            const active = f.key === filter;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilter(f.key)}
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                  active
+                    ? "bg-[var(--color-primary)] text-[var(--color-white)]"
+                    : "border border-[var(--color-border)] bg-white text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-50)]"
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Content */}
@@ -328,12 +288,7 @@ export default function MyAppointmentsPage() {
                 <AppointmentItem
                   key={a.id}
                   appt={a}
-                  menuOpen={openMenuId === a.id}
-                  onToggleMenu={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
-                  onCancel={() => {
-                    setOpenMenuId(null);
-                    setCancelTarget(a);
-                  }}
+                  onOpenDetails={() => setDetailsTarget(a)}
                 />
               ))}
               {upcoming.length === 0 && <EmptyHint text="No upcoming appointments." />}
@@ -344,12 +299,7 @@ export default function MyAppointmentsPage() {
                 <AppointmentItem
                   key={a.id}
                   appt={a}
-                  menuOpen={openMenuId === a.id}
-                  onToggleMenu={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
-                  onCancel={() => {
-                    setOpenMenuId(null);
-                    setCancelTarget(a);
-                  }}
+                  onOpenDetails={() => setDetailsTarget(a)}
                 />
               ))}
               {past.length === 0 && <EmptyHint text="No past appointments." />}
@@ -357,6 +307,35 @@ export default function MyAppointmentsPage() {
           </div>
         )}
       </div>
+
+      {detailsTarget && (
+        <DetailsDrawer
+          appt={detailsTarget}
+          onClose={() => setDetailsTarget(null)}
+          onCancel={() => {
+            const target = detailsTarget;
+            setDetailsTarget(null);
+            setCancelTarget(target);
+          }}
+          onReschedule={() => {
+            const target = detailsTarget;
+            setDetailsTarget(null);
+            setRescheduleTarget(target);
+          }}
+        />
+      )}
+
+      {rescheduleTarget && rescheduleTarget.providerId != null && (
+        <RescheduleModal
+          appt={rescheduleTarget}
+          providerId={rescheduleTarget.providerId}
+          onClose={() => setRescheduleTarget(null)}
+          onSuccess={() => {
+            setRescheduleTarget(null);
+            refresh();
+          }}
+        />
+      )}
 
       {cancelTarget && (
         <ConfirmDialog
@@ -366,7 +345,7 @@ export default function MyAppointmentsPage() {
           onClose={() => (cancelling ? undefined : setCancelTarget(null))}
         />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -375,34 +354,31 @@ export default function MyAppointmentsPage() {
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
     <section>
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">{title}</h2>
         <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--color-bg-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--color-text-secondary)]">
           {count}
         </span>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
+      <div className="space-y-3">{children}</div>
     </section>
   );
 }
 
 function AppointmentItem({
   appt,
-  menuOpen,
-  onToggleMenu,
-  onCancel,
+  onOpenDetails,
 }: {
   appt: AppointmentView;
-  menuOpen: boolean;
-  onToggleMenu: () => void;
-  onCancel: () => void;
+  onOpenDetails: () => void;
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
   const badge = STATUS_BADGE[appt.status] ?? STATUS_BADGE.no_show;
-  const cancellable = appt.status === "confirmed" || appt.status === "waiting";
 
   return (
-    <article className="relative rounded-3xl border border-[var(--color-border)]/80 bg-white p-5 shadow-sm">
+    <article
+      onClick={onOpenDetails}
+      className="relative cursor-pointer rounded-2xl border border-[var(--color-border)]/80 bg-white p-5 shadow-sm transition hover:border-[var(--color-primary)] hover:shadow-md"
+    >
       <div className="flex items-start gap-4">
         <div
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-[var(--color-white)] ${avatarColor(
@@ -415,9 +391,9 @@ function AppointmentItem({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
               <p className="truncate font-semibold text-[var(--color-text-primary)]">{appt.doctorName}</p>
-              <p className="truncate text-sm text-[var(--color-text-secondary)]">{appt.specialty}</p>
+              <span className="truncate text-sm text-[var(--color-text-muted)]">· {appt.specialty}</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -425,39 +401,17 @@ function AppointmentItem({
                 {badge.label}
               </span>
 
-              {/* Three-dots menu */}
-              <div className="relative" ref={menuRef}>
-                <button
-                  type="button"
-                  aria-label="Appointment actions"
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleMenu();
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)]"
-                >
-                  <DotsIcon />
-                </button>
-                {menuOpen && (
-                  <div
-                    role="menu"
-                    className="absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-xl border border-[var(--color-border)] bg-white py-1 shadow-lg"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={!cancellable}
-                      onClick={onCancel}
-                      className="flex w-full items-center px-4 py-2 text-left text-sm text-[var(--color-danger)] enabled:hover:bg-[var(--color-danger-light)] disabled:cursor-not-allowed disabled:text-[var(--color-text-muted)]"
-                    >
-                      Cancel appointment
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                aria-label="Appointment details"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetails();
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)]"
+              >
+                <DotsIcon />
+              </button>
             </div>
           </div>
 
@@ -480,6 +434,223 @@ function AppointmentItem({
         </div>
       </div>
     </article>
+  );
+}
+
+// ─── Details slide-over drawer ──────────────────────────────────────
+function DetailsDrawer({
+  appt,
+  onClose,
+  onCancel,
+  onReschedule,
+}: {
+  appt: AppointmentView;
+  onClose: () => void;
+  onCancel: () => void;
+  onReschedule: () => void;
+}) {
+  const badge = STATUS_BADGE[appt.status] ?? STATUS_BADGE.no_show;
+  // Only active appointments can be acted on.
+  const actionable = appt.status === "confirmed" || appt.status === "waiting";
+  const canReschedule = actionable && appt.providerId != null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-[var(--color-navy)]/40"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <aside
+        className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between p-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              Appointment
+            </p>
+            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Details</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="grid h-9 w-9 place-items-center rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)]"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        <div className="px-6">
+          <div className="flex items-center gap-4">
+            <div
+              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-bold text-[var(--color-white)] ${avatarColor(
+                appt.doctorName,
+              )}`}
+              aria-hidden="true"
+            >
+              {initials(appt.doctorName)}
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-[var(--color-text-primary)]">{appt.doctorName}</p>
+              <p className="text-sm text-[var(--color-text-secondary)]">{appt.specialty}</p>
+            </div>
+          </div>
+
+          <span className={`mt-4 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${badge.className}`}>
+            {badge.label}
+          </span>
+
+          <dl className="mt-6 space-y-4">
+            <DetailRow icon={<CalendarIcon />} label="Date" value={formatDate(appt.startTime)} />
+            <DetailRow icon={<ClockIcon />} label="Time" value={formatTime(appt.startTime)} />
+            <DetailRow icon={<PinIcon />} label="Location" value={appt.clinicName} />
+          </dl>
+
+          <div className="mt-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[var(--color-text-muted)]">Consultation fee</span>
+              <span className="font-semibold text-[var(--color-text-primary)]">$50</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-auto space-y-3 p-6">
+          <button
+            type="button"
+            disabled={!canReschedule}
+            onClick={onReschedule}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--color-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] transition enabled:hover:border-[var(--color-primary)] enabled:hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Reschedule
+          </button>
+          <button
+            type="button"
+            disabled={!actionable}
+            onClick={onCancel}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--color-danger-light)] px-5 py-2.5 text-sm font-semibold text-[var(--color-danger)] transition enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel appointment
+          </button>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+        {icon}
+        {label}
+      </span>
+      <span className="text-sm font-semibold text-[var(--color-text-primary)]">{value}</span>
+    </div>
+  );
+}
+
+// ─── Reschedule modal — pick a new date & time for the same doctor ───
+function RescheduleModal({
+  appt,
+  providerId,
+  onClose,
+  onSuccess,
+}: {
+  appt: AppointmentView;
+  providerId: number;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [slot, setSlot] = useState<Slot | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  async function submit() {
+    if (!slot) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await rescheduleAppointment(appt.id, slot.id);
+      onSuccess();
+    } catch (err) {
+      const code = (err as { response?: { status?: number } })?.response?.status;
+      if (code === 409) {
+        setError("That time was just taken. Please pick another slot.");
+        setSlot(null);
+        setReloadKey((k) => k + 1);
+      } else {
+        setError("Could not reschedule. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-navy)]/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={() => (submitting ? undefined : onClose())}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-[var(--color-border)] p-6">
+          <div>
+            <h3 className="text-xl font-bold text-[var(--color-text-primary)]">Reschedule appointment</h3>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+              {appt.doctorName} · currently {formatDate(appt.startTime)} at {formatTime(appt.startTime)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="grid h-9 w-9 place-items-center rounded-full text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)]"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-6">
+          <DateTimeSelector
+            providerId={providerId}
+            selectedSlot={slot}
+            onSelectSlot={setSlot}
+            reloadKey={reloadKey}
+          />
+          {error && (
+            <p className="mt-4 rounded-xl border border-[var(--color-danger-light)] bg-[var(--color-danger-light)] px-4 py-3 text-sm font-medium text-[var(--color-danger)]">
+              {error}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-[var(--color-border)] p-6">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--color-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-bg-muted)] disabled:opacity-50"
+          >
+            Keep current
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!slot || submitting}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-[var(--color-white)] transition hover:bg-[var(--color-primary-600)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? "Rescheduling…" : "Confirm new time"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -595,6 +766,14 @@ function SearchIcon() {
     <svg {...iconProps}>
       <circle cx="11" cy="11" r="7" />
       <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg {...iconProps} strokeWidth={2.5}>
+      <path d="M18 6 6 18M6 6l12 12" />
     </svg>
   );
 }

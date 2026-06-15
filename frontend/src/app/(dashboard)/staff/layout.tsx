@@ -13,6 +13,7 @@ export default function StaffLayout({
     const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (!isAuthenticated()) {
       router.replace("/login");
       return;
@@ -22,8 +23,8 @@ export default function StaffLayout({
     }
   }, [router]);
 
-    if (!isAuthenticated() || getRole() !== "admin") return null;
-    if (!mounted) return null;
-    
+  if (!mounted) return null;
+  if (!isAuthenticated() || getRole() !== "admin") return null;
+
   return <>{children}</>;
 }

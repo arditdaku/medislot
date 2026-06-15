@@ -1,75 +1,103 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, CheckCircle2, Moon, Sun } from "lucide-react";
 
-import Card from "@/components/ui/card";
+import Skeleton from "@/components/ui/skeleton";
 import { getSlots } from "@/lib/api/slots";
 import type { Slot } from "@/types/api";
 
-// Format a Date as "YYYY-MM-DD" using LOCAL year/month/day (not toISOString,
-// which would shift across the UTC day boundary).
+const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+/** "YYYY-MM-DD" from local Y/M/D (never toISOString — avoids UTC day shift). */
 function toLocalDateStr(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-
-// "10:30" from an ISO datetime string (slice avoids any timezone reinterpretation).
+/** "10:30" from an ISO datetime string (slice avoids timezone reinterpretation). */
 function formatTime(iso: string): string {
   return iso.slice(11, 16);
-}
-
-function formatDateLabel(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function startHourOf(slot: Slot): number {
   return Number(slot.start_time.slice(11, 13));
 }
 
-interface DateTimeSelectorProps {
-  providerId: number;
+function dayKeyOf(slot: Slot): string {
+  return slot.start_time.slice(0, 10);
 }
 
-export default function DateTimeSelector({ providerId }: DateTimeSelectorProps) {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+function formatDateLabel(date: Date): string {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
+interface DateTimeSelectorProps {
+  providerId: number;
+  selectedSlot: Slot | null;
+  onSelectSlot: (slot: Slot | null) => void;
+  /** Bump to force a re-fetch (e.g. after a slot was taken by someone else). */
+  reloadKey?: number;
+}
+
+export default function DateTimeSelector({
+  providerId,
+  selectedSlot,
+  onSelectSlot,
+  reloadKey = 0,
+}: DateTimeSelectorProps) {
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const [viewMonth, setViewMonth] = useState(
+    () => new Date(today.getFullYear(), today.getMonth(), 1),
+  );
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Swapping to the real API later is a one-function change (fetchSlots).
+  // Fetch ALL available slots for the provider once (no date filter), then
+  // group them client-side. One request powers both the calendar and times.
   useEffect(() => {
-    if (!selectedDate) return;
-
     let cancelled = false;
     setLoading(true);
-    setSelectedSlotId(null);
-
-    const dateStr = toLocalDateStr(selectedDate);
-
-    getSlots(providerId, dateStr)
+    getSlots(providerId)
       .then((result) => {
+        // Keep ALL statuses — booked/blocked are shown disabled, not hidden.
         if (!cancelled) setSlots(result);
       })
       .catch(() => {
-        // On error, fall back to an empty state rather than crashing.
         if (!cancelled) setSlots([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-
     return () => {
       cancelled = true;
     };
-  }, [selectedDate, providerId]);
+  }, [providerId, reloadKey]);
 
-  // Calendar grid for the current month.
+  // day key -> slots
+  const byDay = useMemo(() => {
+    const map = new Map<string, Slot[]>();
+    for (const s of slots) {
+      const key = dayKeyOf(s);
+      (map.get(key) ?? map.set(key, []).get(key)!).push(s);
+    }
+    return map;
+  }, [slots]);
+
+  // Days that have at least one available slot (drive the dot + enabled state).
+  const availableDays = useMemo(() => {
+    const set = new Set<string>();
+    for (const [key, list] of byDay) {
+      if (list.some((s) => s.status === "available")) set.add(key);
+    }
+    return set;
+  }, [byDay]);
+
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
   const firstWeekday = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: (number | null)[] = [
@@ -77,30 +105,28 @@ export default function DateTimeSelector({ providerId }: DateTimeSelectorProps) 
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  const morning = slots.filter((s) => {
-    const h = startHourOf(s);
-    return h >= 8 && h <= 11;
-  });
-  const afternoon = slots.filter((s) => {
-    const h = startHourOf(s);
-    return h >= 12 && h <= 16;
-  });
+  const daySlots = selectedDate ? byDay.get(toLocalDateStr(selectedDate)) ?? [] : [];
+  const morning = daySlots
+    .filter((s) => startHourOf(s) < 12)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const afternoon = daySlots
+    .filter((s) => startHourOf(s) >= 12)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
-  const selectedSlot = slots.find((s) => s.id === selectedSlotId) ?? null;
+  const canGoPrev = year > today.getFullYear() || month > today.getMonth();
 
   function renderSlot(slot: Slot) {
-    const isSelected = slot.id === selectedSlotId;
-    const isDisabled = slot.status === "booked" || slot.status === "blocked";
+    const isSelected = slot.id === selectedSlot?.id;
+    const isDisabled = slot.status !== "available";
 
-    let className =
-      "min-h-11 rounded-full border px-4 py-2 text-sm font-medium transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ";
+    let style: string;
     if (isDisabled) {
-      className +=
-        "border-[var(--color-border)] bg-[var(--color-bg-muted)] text-[var(--color-text-muted)] line-through cursor-not-allowed";
+      style =
+        "cursor-not-allowed border-[var(--color-border)] bg-[var(--color-bg-muted)] text-[var(--color-text-muted)] line-through";
     } else if (isSelected) {
-      className += "border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-white)]";
+      style = "border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-white)]";
     } else {
-      className +=
+      style =
         "border-[var(--color-border)] bg-white text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-50)]";
     }
 
@@ -110,96 +136,131 @@ export default function DateTimeSelector({ providerId }: DateTimeSelectorProps) 
         type="button"
         disabled={isDisabled}
         aria-pressed={isSelected}
-        onClick={() => setSelectedSlotId(slot.id)}
-        className={className}
+        title={isDisabled ? "Already booked" : undefined}
+        onClick={() => onSelectSlot(isSelected ? null : slot)}
+        className={`min-h-10 rounded-full border px-4 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ${style}`}
       >
         {formatTime(slot.start_time)}
       </button>
     );
   }
 
-  function renderGroup(title: string, groupSlots: Slot[]) {
-    if (groupSlots.length === 0) return null;
+  function renderGroup(title: string, icon: React.ReactNode, range: string, group: Slot[]) {
+    if (group.length === 0) return null;
     return (
       <div className="flex flex-col gap-3">
-        <h4 className="text-sm font-semibold text-[var(--color-text-secondary)]">{title}</h4>
-        <div className="flex flex-wrap gap-2">{groupSlots.map(renderSlot)}</div>
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
+          {icon}
+          {title}
+          <span className="font-normal text-[var(--color-text-muted)]">{range}</span>
+        </h4>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{group.map(renderSlot)}</div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       {/* Left: month calendar */}
-      <Card className="p-6">
-        <h3 className="mb-4 text-base font-semibold text-[var(--color-text-primary)]">
-          {today.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-        </h3>
+      <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+            {viewMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+          </h3>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={!canGoPrev}
+              onClick={() => setViewMonth(new Date(year, month - 1, 1))}
+              aria-label="Previous month"
+              className="grid h-8 w-8 place-items-center rounded-full text-[var(--color-text-secondary)] transition hover:bg-[var(--color-bg-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMonth(new Date(year, month + 1, 1))}
+              aria-label="Next month"
+              className="grid h-8 w-8 place-items-center rounded-full text-[var(--color-text-secondary)] transition hover:bg-[var(--color-bg-muted)]"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-7 gap-1 text-center">
-          {WEEKDAYS.map((day) => (
-            <div key={day} className="py-2 text-xs font-semibold text-[var(--color-text-muted)]">
-              {day}
+          {WEEKDAYS.map((d) => (
+            <div key={d} className="py-2 text-xs font-semibold text-[var(--color-text-muted)]">
+              {d}
             </div>
           ))}
-          {cells.map((day, i) => {
-            if (day === null) return <div key={`blank-${i}`} />;
-            const isSelected =
-              selectedDate !== null &&
-              selectedDate.getFullYear() === year &&
-              selectedDate.getMonth() === month &&
-              selectedDate.getDate() === day;
-            const isToday = day === today.getDate();
 
-            let className =
-              "flex min-h-11 items-center justify-center rounded-full text-sm transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ";
-            if (isSelected) {
-              className += "bg-[var(--color-primary)] font-semibold text-[var(--color-white)]";
-            } else if (isToday) {
-              className +=
-                "border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-50)]";
-            } else {
-              className += "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)]";
-            }
+          {loading
+            ? Array.from({ length: 35 }, (_, i) => <Skeleton key={i} className="m-1 h-9 rounded-full" />)
+            : cells.map((day, i) => {
+                if (day === null) return <div key={`blank-${i}`} />;
+                const date = new Date(year, month, day);
+                const hasSlots = availableDays.has(toLocalDateStr(date));
+                const isPast = date < todayStart;
+                const disabled = isPast || !hasSlots;
+                const isSelected =
+                  selectedDate !== null && toLocalDateStr(selectedDate) === toLocalDateStr(date);
 
-            return (
-              <button
-                key={day}
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => setSelectedDate(new Date(year, month, day))}
-                className={className}
-              >
-                {day}
-              </button>
-            );
-          })}
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    disabled={disabled}
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      setSelectedDate(date);
+                      onSelectSlot(null);
+                    }}
+                    className={`relative flex min-h-11 items-center justify-center rounded-xl text-sm transition ${
+                      isSelected
+                        ? "bg-[var(--color-primary)] font-semibold text-[var(--color-white)]"
+                        : disabled
+                          ? "text-[var(--color-text-muted)]/50 cursor-not-allowed"
+                          : "font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-primary-50)]"
+                    }`}
+                  >
+                    {day}
+                    {hasSlots && !isSelected && (
+                      <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-[var(--color-primary)]" />
+                    )}
+                  </button>
+                );
+              })}
         </div>
-      </Card>
+      </div>
 
-      {/* Right: time slots for the selected date */}
-      <Card className="p-6">
+      {/* Right: time slots */}
+      <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
         {!selectedDate ? (
           <p className="text-sm text-[var(--color-text-muted)]">Select a date to see available times.</p>
-        ) : loading ? (
-          <p className="text-sm text-[var(--color-text-muted)]">Loading times…</p>
-        ) : slots.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)]">No times available for this date.</p>
         ) : (
           <div className="flex flex-col gap-6">
-            <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+            <p className="text-sm font-medium text-[var(--color-text-secondary)]">
               {formatDateLabel(selectedDate)}
-            </h3>
-            {renderGroup("Morning", morning)}
-            {renderGroup("Afternoon", afternoon)}
+            </p>
+            {daySlots.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-muted)]">No times available for this date.</p>
+            ) : (
+              <>
+                {renderGroup("Morning", <Sun size={15} className="text-[var(--color-warning)]" />, "08:00 — 12:00", morning)}
+                {renderGroup("Afternoon", <Moon size={15} className="text-[var(--color-primary)]" />, "12:00 — 17:00", afternoon)}
+              </>
+            )}
 
             {selectedSlot && (
-              <div className="rounded-2xl bg-[var(--color-primary-50)] px-4 py-3 text-sm font-semibold text-[var(--color-primary-700)]">
+              <div className="flex items-center gap-2 rounded-2xl bg-[var(--color-primary-50)] px-4 py-3 text-sm font-semibold text-[var(--color-primary-700)]">
+                <CheckCircle2 size={16} />
                 Selected: {formatDateLabel(selectedDate)} at {formatTime(selectedSlot.start_time)}
               </div>
             )}
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

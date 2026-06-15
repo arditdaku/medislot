@@ -27,6 +27,9 @@ router = APIRouter(prefix="/appointments", tags=["appointments"])
 class BookingRequest(BaseModel):
     slot_id: UUID
     service_id: int
+    # Optional: when omitted, the patient is resolved from the authenticated
+    # user (the normal API path). Explicit callers may pass it directly.
+    patient_id: Optional[UUID] = None
 
 
 class AppointmentResponse(BaseModel):
@@ -39,6 +42,35 @@ class AppointmentResponse(BaseModel):
     status: AppointmentStatus
     created_at: datetime
     updated_at: datetime
+
+
+class ProviderBrief(BaseModel):
+    full_name: str
+    specialty: str
+
+
+class SlotBrief(BaseModel):
+    provider_id: int
+    start_time: datetime
+    end_time: datetime
+
+
+class ServiceBrief(BaseModel):
+    name: str
+    department: str
+
+
+class MyAppointmentResponse(BaseModel):
+    """Enriched appointment for the patient's own list — embeds doctor, slot
+    and service details so the UI can render without extra round-trips."""
+
+    id: UUID
+    status: AppointmentStatus
+    created_at: datetime
+    updated_at: datetime
+    provider: Optional[ProviderBrief] = None
+    slot: Optional[SlotBrief] = None
+    service: Optional[ServiceBrief] = None
 
 
 @router.post(
@@ -60,11 +92,20 @@ def book_appointment(
     available and receives a ``409``. The UNIQUE constraint on
     ``appointments.slot_id`` is a second, database-level guarantee.
     """
-    patient = (
-        db.query(Patient)
-        .filter(Patient.user_id == current_user.id)
-        .first()
-    )
+    # Resolve the booking patient: prefer an explicit patient_id when given,
+    # otherwise fall back to the authenticated user's patient profile.
+    if payload.patient_id is not None:
+        patient = (
+            db.query(Patient)
+            .filter(Patient.id == payload.patient_id)
+            .first()
+        )
+    else:
+        patient = (
+            db.query(Patient)
+            .filter(Patient.user_id == current_user.id)
+            .first()
+        )
     if patient is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -72,17 +113,6 @@ def book_appointment(
         )
 
     try:
-        patient = (
-            db.query(Patient.id)
-            .filter(Patient.id == payload.patient_id)
-            .first()
-        )
-        if patient is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Patient not found",
-            )
-
         service = (
             db.query(Service.id)
             .filter(Service.id == payload.service_id)
@@ -113,11 +143,12 @@ def book_appointment(
                 detail="Slot is already booked",
             )
 
+        # New bookings start as "waiting" (Pending) until the doctor confirms.
         appointment = Appointment(
             patient_id=patient.id,
             slot_id=slot.id,
             service_id=payload.service_id,
-            status=AppointmentStatus.confirmed,
+            status=AppointmentStatus.waiting,
         )
         slot.status = SlotStatus.booked
 
@@ -139,13 +170,14 @@ def book_appointment(
         raise
 
 
-@router.get("/me", response_model=list[AppointmentResponse])
+@router.get("/me", response_model=list[MyAppointmentResponse])
 def my_appointments(
     status_filter: Optional[AppointmentStatus] = Query(None, alias="status"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return the authenticated patient's own appointments.
+    """Return the authenticated patient's own appointments, enriched with the
+    doctor, slot and service details.
 
     ``get_current_user`` enforces a valid Bearer token (401 otherwise). The
     user must have a patient profile; non-patients receive a 403. An optional
@@ -166,7 +198,40 @@ def my_appointments(
     if status_filter is not None:
         query = query.filter(Appointment.status == status_filter)
 
-    return query.order_by(Appointment.created_at.desc()).all()
+    appointments = query.order_by(Appointment.created_at.desc()).all()
+
+    result = []
+    for appt in appointments:
+        slot = appt.slot
+        provider = slot.provider if slot else None
+        result.append(
+            {
+                "id": appt.id,
+                "status": appt.status,
+                "created_at": appt.created_at,
+                "updated_at": appt.updated_at,
+                "provider": (
+                    {"full_name": provider.full_name, "specialty": provider.specialty}
+                    if provider
+                    else None
+                ),
+                "slot": (
+                    {
+                        "provider_id": slot.provider_id,
+                        "start_time": slot.start_time,
+                        "end_time": slot.end_time,
+                    }
+                    if slot
+                    else None
+                ),
+                "service": (
+                    {"name": appt.service.name, "department": appt.service.department}
+                    if appt.service
+                    else None
+                ),
+            }
+        )
+    return result
 
 
 @router.delete(
@@ -222,3 +287,102 @@ def cancel_appointment(
         "message": "Appointment cancelled successfully",
         "appointment_id": str(appointment.id),
     }
+
+
+class RescheduleRequest(BaseModel):
+    slot_id: UUID
+
+
+@router.patch("/{appointment_id}/reschedule", response_model=AppointmentResponse)
+def reschedule_appointment(
+    appointment_id: UUID,
+    payload: RescheduleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Move an appointment to a different available slot.
+
+    Frees the old slot, books the new one (locked with ``SELECT ... FOR
+    UPDATE``), and resets the appointment to ``waiting`` so the doctor
+    re-confirms the new time.
+    """
+    appointment = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id)
+        .with_for_update()
+        .first()
+    )
+    if appointment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Appointment not found",
+        )
+
+    is_admin = current_user.role == "admin"
+    patient_profile = current_user.patient
+    is_owner = (
+        patient_profile is not None
+        and appointment.patient_id == patient_profile.id
+    )
+    if not is_owner and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to reschedule this appointment",
+        )
+
+    if appointment.status in (
+        AppointmentStatus.cancelled,
+        AppointmentStatus.completed,
+        AppointmentStatus.no_show,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This appointment can no longer be rescheduled",
+        )
+
+    if payload.slot_id == appointment.slot_id:
+        return appointment  # no-op: same slot
+
+    try:
+        new_slot = (
+            db.query(AppointmentSlot)
+            .filter(AppointmentSlot.id == payload.slot_id)
+            .with_for_update()
+            .first()
+        )
+        if new_slot is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Slot not found",
+            )
+        if new_slot.status != SlotStatus.available:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Slot is already booked",
+            )
+
+        old_slot = (
+            db.query(AppointmentSlot)
+            .filter(AppointmentSlot.id == appointment.slot_id)
+            .with_for_update()
+            .first()
+        )
+        if old_slot is not None:
+            old_slot.status = SlotStatus.available
+
+        new_slot.status = SlotStatus.booked
+        appointment.slot_id = new_slot.id
+        appointment.status = AppointmentStatus.waiting
+
+        db.commit()
+        db.refresh(appointment)
+        return appointment
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Slot is already booked",
+        )

@@ -14,6 +14,7 @@ class ProviderResponse(BaseModel):
 
     id: int
     user_id: int
+    full_name: str
     specialty: str
     working_hours: dict[str, Any] | None = None
     is_active: bool

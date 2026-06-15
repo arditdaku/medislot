@@ -16,6 +16,8 @@ export type AppointmentStatus =
 export interface Provider {
   id: number;
   user_id: number;
+  /** Doctor's display name (sourced from the linked user). */
+  full_name: string;
   specialty: string;
   working_hours: Record<string, unknown> | null;
   is_active: boolean;
