@@ -12,7 +12,7 @@ export default function TrustedBy() {
       aria-label="Trusted by healthcare organizations"
       className="bg-[var(--color-bg-secondary)] py-10"
     >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-secondary)]">
           Trusted by clinics and care teams
         </p>

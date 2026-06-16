@@ -23,7 +23,7 @@ export default function Footer() {
 
   return (
     <footer className="border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
+      <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div>
           <Logo />
           <p className="mt-4 max-w-md leading-7 text-[var(--color-secondary)]">
@@ -75,7 +75,7 @@ export default function Footer() {
           </div>
         </div>
       </div>
-      <div className="mx-auto mt-10 max-w-7xl border-t border-[var(--color-border)] pt-6 text-sm text-[var(--color-secondary)]">
+      <div className="mx-auto mt-10 max-w-6xl border-t border-[var(--color-border)] pt-6 text-sm text-[var(--color-secondary)]">
         &copy; 2026 MediSlot. All rights reserved.
       </div>
     </footer>

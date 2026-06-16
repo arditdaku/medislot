@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import BackToTop from "./BackToTop";
 import Benefits from "./Benefits";
 import FAQ from "./FAQ";
 import Features from "./Features";
@@ -37,6 +38,7 @@ export default function LandingPageClient() {
         <FAQ />
       </main>
       <Footer />
+      <BackToTop />
     </div>
   );
 }

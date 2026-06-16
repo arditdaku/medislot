@@ -9,9 +9,9 @@ import MiniAppointmentCard from "./MiniAppointmentCard";
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden bg-[var(--color-bg-secondary)] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+    <section className="relative overflow-hidden bg-[var(--color-bg-secondary)] px-4 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-10 lg:px-8 lg:pb-24 lg:pt-12">
       <div className="absolute inset-0 -z-0 bg-[radial-gradient(circle_at_top_left,var(--color-primary-100),transparent_34%),radial-gradient(circle_at_bottom_right,var(--color-primary-50),transparent_30%)]" />
-      <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
         <motion.div
           initial={false}
           animate="visible"

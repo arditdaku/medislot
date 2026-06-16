@@ -57,6 +57,10 @@ export default function DashboardMockup({
     );
   }
 
+  const sectionGap = compact ? "mt-4" : "mt-6";
+  const barHeight = compact ? 92 : 128;
+  const rows = compact ? tableRows.slice(0, 3) : tableRows;
+
   return (
     <Card className={`overflow-hidden p-4 sm:p-6 ${compact ? "" : "lg:p-7"}`}>
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -73,7 +77,7 @@ export default function DashboardMockup({
         </span>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className={`${sectionGap} grid gap-4 sm:grid-cols-3`}>
         {dashboardStats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -93,14 +97,14 @@ export default function DashboardMockup({
         })}
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className={`${sectionGap} grid gap-5 lg:grid-cols-[1.1fr_0.9fr]`}>
         <div className="rounded-2xl border border-[var(--color-border-light)] bg-white p-4">
           <div className="flex items-end gap-2">
             {[52, 74, 46, 88, 68, 94, 78].map((height, index) => (
               <div
                 key={height + index}
                 className="flex flex-1 items-end rounded-full bg-[var(--color-border-light)] p-1"
-                style={{ height: 128 }}
+                style={{ height: barHeight }}
               >
                 <div
                   className="w-full rounded-full bg-[var(--color-primary)]"
@@ -134,7 +138,7 @@ export default function DashboardMockup({
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--color-border-light)]">
+      <div className={`${sectionGap} overflow-hidden rounded-2xl border border-[var(--color-border-light)]`}>
         <table className="w-full text-left text-sm">
           <thead className="bg-[var(--color-bg-secondary)] text-xs uppercase text-[var(--color-text-muted)]">
             <tr>
@@ -147,7 +151,7 @@ export default function DashboardMockup({
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border-light)]">
-            {tableRows.map(([time, patient, visit, status]) => (
+            {rows.map(([time, patient, visit, status]) => (
               <tr key={`${time}-${patient}`} className="bg-white">
                 <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
                   {time}
