@@ -6,6 +6,7 @@ from app.routes import appointments
 from app.routes import services
 from app.routes import providers
 from app.routes import dashboard
+from app.routes import patients
 
 
 from fastapi import Depends, FastAPI
@@ -34,6 +35,7 @@ app.include_router(appointments.router)
 app.include_router(providers.router)
 app.include_router(services.router)
 app.include_router(dashboard.router)
+app.include_router(patients.router)
 
 
 @app.get("/")
