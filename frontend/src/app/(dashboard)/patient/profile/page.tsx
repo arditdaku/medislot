@@ -9,7 +9,7 @@ import {
   Mail,
   CheckCircle2,
 } from "lucide-react";
-import { getUser } from "@/lib/auth";
+import { getUser, getToken } from "@/lib/auth";
 
 type PatientProfile = {
   fullName: string;
@@ -56,7 +56,10 @@ export default function PatientProfilePage() {
 
     const fetchPatientProfile = async () => {
       try {
-        const response = await fetch(`${apiUrl}/patients/me`);
+        const token = getToken();
+        const response = await fetch(`${apiUrl}/patients/me`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
 
         if (!response.ok) {
           throw new Error("Failed to load patient profile");
@@ -146,10 +149,12 @@ export default function PatientProfilePage() {
     setIsSaving(true);
 
     try {
+      const token = getToken();
       const response = await fetch(`${apiUrl}/patients/me`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           full_name: profile.fullName,
