@@ -10,6 +10,7 @@ import {
   Calendar,
   ClipboardList,
   Users,
+  UserPlus,
   Layers,
   Clock,
   ListChecks,
@@ -39,6 +40,7 @@ const NAV_LINKS: Record<string, NavLink[]> = {
   admin: [
     { label: "Dashboard", href: "/staff", icon: LayoutDashboard },
     { label: "Providers", href: "/staff/providers", icon: Users },
+    { label: "Add Doctor", href: "/staff/providers/new", icon: UserPlus },
     { label: "Services", href: "/staff/services", icon: Layers },
     { label: "Slots", href: "/staff/slots", icon: Clock },
     { label: "Appointments", href: "/staff/appointments", icon: Calendar },
