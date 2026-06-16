@@ -6,9 +6,7 @@ import {
   BellRing,
   Building2,
   CalendarCheck,
-  CheckCircle2,
   Clock3,
-  ShieldCheck,
   UsersRound,
 } from "lucide-react";
 import Card from "../ui/card";
@@ -52,36 +50,12 @@ const features = [
     description:
       "Track bookings, no-shows, provider utilization, and clinic performance with clean reports.",
   },
-  {
-    icon: CheckCircle2,
-    title: "Atomic Booking",
-    description:
-      "Reserve slots with conflict-safe booking logic that keeps calendars consistent even during busy scheduling windows.",
-  },
-  {
-    icon: Clock3,
-    title: "Live Queue",
-    description:
-      "Show real-time waitlist movement, arrival status, and next-up visibility for front desk and care teams.",
-  },
-  {
-    icon: UsersRound,
-    title: "Multi-role",
-    description:
-      "Give admins, providers, coordinators, and support staff focused access to the workflows they need.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Audit Ready",
-    description:
-      "Keep appointment changes, patient actions, and staff updates traceable for cleaner operational review.",
-  },
 ];
 
 export default function Features() {
   return (
     <section id="features" className="bg-[var(--color-bg-secondary)] px-4 py-20 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-6xl">
         <SectionHeader
           eyebrow="Features" 
           title="Everything your clinic needs to keep calendars healthy"

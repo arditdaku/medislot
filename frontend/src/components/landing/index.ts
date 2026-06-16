@@ -1,3 +1,4 @@
+export { default as BackToTop } from "./BackToTop";
 export { default as Benefits } from "./Benefits";
 export { default as DashboardPreview } from "./DashboardPreview";
 export { default as FAQ } from "./FAQ";

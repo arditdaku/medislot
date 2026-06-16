@@ -27,16 +27,16 @@ const illustrationCards = [
 export default function Benefits() {
   return (
     <section className="bg-white px-4 py-20 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2">
         <motion.div
           initial={false}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
         >
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-navy)]">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
             Benefits
           </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--color-secondary)] sm:text-4xl">
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-4xl">
             Give your team fewer manual tasks and better daily rhythm
           </h2>
           <p className="mt-5 leading-8 text-[var(--color-secondary)]">
