@@ -391,84 +391,101 @@ def reschedule_appointment(
             detail="Slot is already booked",
         )
 
-@router.get("/admin/", response_model=AdminAppointmentListResponse)
-def get_all_appointments_admin(
-    status: Optional[AppointmentStatus] = Query(None),
-    service_id: Optional[int] = Query(None),
-    date: Optional[datetime] = Query(None),
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+
+class AppointmentStatusUpdate(BaseModel):
+    status: AppointmentStatus
+
+
+VALID_STATUS_TRANSITIONS = {
+    AppointmentStatus.waiting: {
+        AppointmentStatus.in_progress,
+        AppointmentStatus.cancelled,
+        AppointmentStatus.no_show,
+    },
+    AppointmentStatus.in_progress: {
+        AppointmentStatus.completed,
+        AppointmentStatus.cancelled,
+        AppointmentStatus.no_show,
+    },
+    AppointmentStatus.completed: set(),
+    AppointmentStatus.no_show: set(),
+    AppointmentStatus.cancelled: set(),
+}
+
+
+@router.patch("/{appointment_id}/status", response_model=AppointmentResponse)
+def update_appointment_status(
+    appointment_id: UUID,
+    payload: AppointmentStatusUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(get_current_user),
 ):
-    """Return appointments for admin console, enriched with patient,
-    slot/provider and service details.
+    """Update appointment status for queue management.
+
+    Restricted to admins and doctors. Doctors may only update their own
+    appointments (403 otherwise). Invalid transitions return 400.
+    Cancelling releases the slot back to ``available`` in the same
+    transaction.
     """
-
-    # Base query selects both Appointment and Patient so we can avoid
-    base_q = db.query(Appointment, Patient).join(
-        Patient, Patient.id == Appointment.patient_id
-    )
-
-    if status is not None:
-        base_q = base_q.filter(Appointment.status == status)
-
-    if service_id is not None:
-        base_q = base_q.filter(Appointment.service_id == service_id)
-
-    if date is not None:
-        base_q = base_q.filter(Appointment.created_at == date)
-
-    total = base_q.count()
-
-    q = (
-        db.query(Appointment, Patient)
-        .join(Patient, Patient.id == Appointment.patient_id)
-        .options(
-            joinedload(Appointment.slot).joinedload(AppointmentSlot.provider).joinedload(Provider.user),
-            joinedload(Appointment.service),
-        )
-    )
-
-    if status is not None:
-        q = q.filter(Appointment.status == status)
-    if service_id is not None:
-        q = q.filter(Appointment.service_id == service_id)
-    if date is not None:
-        q = q.filter(Appointment.created_at == date)
-
-    rows = (
-        q.order_by(Appointment.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-        .all()
-    )
-
-    items = []
-    for appointment, patient in rows:
-        slot = appointment.slot
-        provider = slot.provider if slot is not None else None
-        service = appointment.service
-
-        age = None
-        if patient and getattr(patient, "dob", None):
-            today = datetime.today().date()
-            dob = patient.dob
-            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-
-        appointment_dt = slot.start_time if slot is not None else appointment.created_at
-
-        items.append(
-            {
-                "id": appointment.id,
-                "patient_name": patient.full_name if patient else None,
-                "patient_age": age,
-                "doctor_name": provider.full_name if provider else None,
-                "service_name": service.name if service else None,
-                "fee": service.fee if service else None,
-                "appointment_datetime": appointment_dt,
-                "status": appointment.status,
-            }
+    if current_user.role not in ("admin", "doctor"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins and doctors can update appointment status",
         )
 
-    return {"total": total, "limit": limit, "offset": offset, "items": items}
+    appointment = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id)
+        .with_for_update()
+        .first()
+    )
+    if appointment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Appointment not found",
+        )
+
+    is_admin = current_user.role == "admin"
+    if not is_admin:
+        provider_profile = current_user.provider
+        slot = (
+            db.query(AppointmentSlot)
+            .filter(AppointmentSlot.id == appointment.slot_id)
+            .first()
+        )
+        is_owner = (
+            provider_profile is not None
+            and slot is not None
+            and slot.provider_id == provider_profile.id
+        )
+        if not is_owner:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to update this appointment",
+            )
+
+    allowed_next = VALID_STATUS_TRANSITIONS.get(appointment.status, set())
+    if payload.status not in allowed_next:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot transition from {appointment.status} to {payload.status}",
+        )
+
+    try:
+        if payload.status == AppointmentStatus.cancelled:
+            slot = (
+                db.query(AppointmentSlot)
+                .filter(AppointmentSlot.id == appointment.slot_id)
+                .with_for_update()
+                .first()
+            )
+            if slot:
+                slot.status = SlotStatus.available
+
+        appointment.status = payload.status
+        db.commit()
+        db.refresh(appointment)
+        return appointment
+    except Exception:
+        db.rollback()
+        raise

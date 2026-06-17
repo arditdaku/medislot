@@ -23,22 +23,5 @@ class AppointmentResponse(BaseModel):
         from_attributes = True
 
 
-class AdminAppointmentResponse(BaseModel):
-    id: UUID
-    patient_name: str
-    patient_age: int
-    doctor_name: str
-    service_name: str
-    fee: int
-    appointment_datetime: datetime
+class StatusUpdate(BaseModel):
     status: AppointmentStatus
-
-    class Config:
-        from_attributes = True
-
-
-class AdminAppointmentListResponse(BaseModel):
-    total: int
-    limit: int
-    offset: int
-    items: List[AdminAppointmentResponse]
