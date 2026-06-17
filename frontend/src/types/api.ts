@@ -20,9 +20,26 @@ export interface Provider {
   full_name: string;
   specialty: string;
   working_hours: Record<string, unknown> | null;
+  experience: string | null;
+  fees: number | null;
+  address: string | null;
+  about: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** POST /providers — `DoctorCreate` (admin creates a doctor). */
+export interface DoctorCreatePayload {
+  full_name: string;
+  email: string;
+  password: string;
+  specialty: string;
+  working_hours?: Record<string, unknown> | null;
+  experience?: string | null;
+  fees?: number | null;
+  address?: string | null;
+  about?: string | null;
 }
 
 /** GET /services — `ServiceResponse`. */

@@ -11,14 +11,18 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user
+from app.routes.auth import require_role
 from app.db.session import get_db
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.patient import Patient
 from app.models.service import Service
 from app.models.slot import AppointmentSlot, SlotStatus
+from app.models.provider import Provider
+from app.schemas.appointment import AdminAppointmentListResponse
 from app.models.user import User
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
