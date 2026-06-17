@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isAxiosError } from "axios";
 import {
@@ -14,6 +14,8 @@ import {
   MapPin,
   User as UserIcon,
   FileText,
+  GraduationCap,
+  Upload,
   Loader2,
   CheckCircle2,
 } from "lucide-react";
@@ -40,8 +42,12 @@ const EXPERIENCE_OPTIONS = [
   "1 Year",
   "2 Years",
   "3 Years",
+  "4 Years",
   "5 Years",
+  "6 Years",
+  "7 Years",
   "8 Years",
+  "9 Years",
   "10+ Years",
 ];
 
@@ -51,6 +57,7 @@ type FormState = {
   password: string;
   specialty: string;
   experience: string;
+  education: string;
   fees: string;
   address: string;
   about: string;
@@ -62,18 +69,13 @@ const emptyForm: FormState = {
   password: "",
   specialty: FALLBACK_SPECIALTIES[0],
   experience: EXPERIENCE_OPTIONS[0],
+  education: "",
   fees: "",
   address: "",
   about: "",
 };
 
 type Toast = { type: "success" | "error"; message: string } | null;
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "DR";
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
-}
 
 export default function AddDoctorPage() {
   const router = useRouter();
@@ -83,8 +85,8 @@ export default function AddDoctorPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [specialties, setSpecialties] = useState<string[]>(FALLBACK_SPECIALTIES);
-
-  const avatarInitials = useMemo(() => initials(form.fullName), [form.fullName]);
+  // Non-functional for this ticket: the picture stays null and clicking does nothing.
+  const [picture] = useState<File | null>(null);
 
   // Specialty options are the real service departments, so a created doctor
   // matches what patients can pick in the booking flow.
@@ -125,8 +127,10 @@ export default function AddDoctorPage() {
     else if (form.password.length < 8)
       next.password = "Password must be at least 8 characters.";
     if (!form.specialty.trim()) next.specialty = "Speciality is required.";
-    if (form.fees && Number.isNaN(Number(form.fees)))
-      next.fees = "Fees must be a number.";
+    if (!form.education.trim()) next.education = "Education is required.";
+    if (!form.fees.trim()) next.fees = "Fees is required.";
+    else if (Number.isNaN(Number(form.fees)) || Number(form.fees) <= 0)
+      next.fees = "Fees must be a number greater than 0.";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -151,16 +155,16 @@ export default function AddDoctorPage() {
         address: form.address.trim() || null,
         about: form.about.trim() || null,
       };
-      const doctor = await createDoctor(payload);
+      await createDoctor(payload);
       setToast({
         type: "success",
-        message: `Dr. ${doctor.full_name} was created successfully.`,
+        message: "Doctor added successfully",
       });
-      setForm(emptyForm);
+      router.push("/staff/providers");
     } catch (err) {
       const message =
         isAxiosError(err) && err.response?.status === 409
-          ? "A user with this email already exists."
+          ? "A doctor with this email already exists."
           : "Could not create the doctor. Please try again.";
       setToast({ type: "error", message });
     } finally {
@@ -201,17 +205,18 @@ export default function AddDoctorPage() {
         onSubmit={handleSubmit}
         className="rounded-2xl border border-border bg-white p-6 shadow-sm sm:p-8"
       >
-        {/* Identity row */}
+        {/* Upload picture (non-functional placeholder) */}
         <div className="flex items-center gap-5 border-b border-border-light pb-6">
-          <span className="grid h-20 w-20 flex-none place-items-center rounded-2xl bg-primary-100 text-2xl font-bold text-primary">
-            {avatarInitials}
+          <button
+            type="button"
+            aria-label="Upload doctor picture"
+            className="grid h-20 w-20 flex-none place-items-center rounded-full border border-border bg-bg-muted text-text-muted"
+          >
+            <Upload size={24} />
+          </button>
+          <span className="text-sm text-text-secondary">
+            {picture ? "Picture selected" : "Upload doctor picture"}
           </span>
-          <div>
-            <h2 className="text-lg font-bold text-text-primary">
-              {form.fullName.trim() || "New doctor"}
-            </h2>
-            <p className="text-sm text-text-muted">{form.specialty}</p>
-          </div>
         </div>
 
         <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -331,6 +336,23 @@ export default function AddDoctorPage() {
             />
             {errors.fees && (
               <p className="mt-1 text-sm text-danger">{errors.fees}</p>
+            )}
+          </div>
+
+          {/* Education */}
+          <div>
+            <label className={labelClass} htmlFor="education">
+              <GraduationCap size={15} /> Education
+            </label>
+            <input
+              id="education"
+              value={form.education}
+              onChange={(e) => update("education", e.target.value)}
+              placeholder="e.g. MBBS, MD"
+              className={fieldClass}
+            />
+            {errors.education && (
+              <p className="mt-1 text-sm text-danger">{errors.education}</p>
             )}
           </div>
 
