@@ -1,7 +1,7 @@
 """add doctor fields to providers
 
 Revision ID: e5f4d3c2b1a0
-Revises: d4c3b2a1e0f9
+Revises: e5d4c3b2a1f0
 Create Date: 2026-06-16 14:45:00.000000
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = "e5f4d3c2b1a0"
-down_revision: Union[str, Sequence[str], None] = "d4c3b2a1e0f9"
+down_revision: Union[str, Sequence[str], None] = "e5d4c3b2a1f0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
