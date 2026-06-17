@@ -17,6 +17,24 @@ def list_providers(db: Session = Depends(get_db)):
     return db.query(Provider).filter(Provider.is_active.is_(True)).all()
 
 
+@router.get("/me", response_model=ProviderResponse)
+def get_my_provider(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["doctor"])),
+):
+    provider = (
+        db.query(Provider)
+        .filter(Provider.user_id == current_user.id)
+        .first()
+    )
+    if provider is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No provider record found for current user",
+        )
+    return provider
+
+
 @router.post("", response_model=ProviderResponse, status_code=status.HTTP_201_CREATED)
 def create_doctor(
     doctor_in: DoctorCreate,
