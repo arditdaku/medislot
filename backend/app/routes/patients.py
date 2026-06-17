@@ -1,13 +1,60 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.db.session import get_db
+from app.models.appointment import Appointment
 from app.models.patient import Patient
 from app.models.user import User
-from app.schemas.patient import PatientResponse, PatientUpdate
+from app.routes.auth import require_role
+from app.schemas.patient import PatientAdminResponse, PatientResponse, PatientUpdate
 
 router = APIRouter(prefix="/patients", tags=["patients"])
+
+
+@router.get("", response_model=list[PatientAdminResponse])
+def list_patients(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role(["admin"])),
+):
+    """Admin-only: list all patients with email and total appointment count."""
+    count_subq = (
+        db.query(
+            Appointment.patient_id.label("patient_id"),
+            func.count(Appointment.id).label("cnt"),
+        )
+        .group_by(Appointment.patient_id)
+        .subquery()
+    )
+
+    rows = (
+        db.query(
+            Patient,
+            User.email,
+            func.coalesce(count_subq.c.cnt, 0).label("total_appointments"),
+        )
+        .join(User, Patient.user_id == User.id)
+        .outerjoin(count_subq, count_subq.c.patient_id == Patient.id)
+        .order_by(Patient.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        PatientAdminResponse(
+            id=patient.id,
+            full_name=patient.full_name,
+            email=email,
+            phone=patient.phone,
+            date_of_birth=patient.dob,
+            total_appointments=total_appointments,
+        )
+        for patient, email, total_appointments in rows
+    ]
 
 
 def _resolve_patient(db: Session, user: User) -> Patient:
