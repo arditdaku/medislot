@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.session import Base
@@ -14,6 +14,10 @@ class Provider(Base):
                      unique=True, nullable=False)
     specialty = Column(String, nullable=False)
     working_hours = Column(JSON, nullable=True)
+    experience = Column(String, nullable=True)
+    fees = Column(Integer, nullable=True)
+    address = Column(String, nullable=True)
+    about = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(
