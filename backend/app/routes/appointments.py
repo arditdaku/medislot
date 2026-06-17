@@ -22,8 +22,8 @@ from app.models.patient import Patient
 from app.models.service import Service
 from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.provider import Provider
-from app.schemas.appointment import AdminAppointmentListResponse
 from app.models.user import User
+from app.schemas.appointment import AdminAppointmentListResponse
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
@@ -489,3 +489,68 @@ def update_appointment_status(
     except Exception:
         db.rollback()
         raise
+
+
+@router.get("/admin/", response_model=AdminAppointmentListResponse)
+def get_all_appointments_admin(
+    status: Optional[AppointmentStatus] = Query(None),
+    service_id: Optional[int] = Query(None),
+    date: Optional[datetime] = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"])),
+):
+    """Admin console: list appointments enriched with patient, doctor and service."""
+    q = (
+        db.query(Appointment, Patient)
+        .join(Patient, Patient.id == Appointment.patient_id)
+        .options(
+            joinedload(Appointment.slot)
+            .joinedload(AppointmentSlot.provider)
+            .joinedload(Provider.user),
+            joinedload(Appointment.service),
+        )
+    )
+    if status is not None:
+        q = q.filter(Appointment.status == status)
+    if service_id is not None:
+        q = q.filter(Appointment.service_id == service_id)
+    if date is not None:
+        q = q.filter(Appointment.created_at == date)
+
+    total = q.count()
+
+    rows = (
+        q.order_by(Appointment.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+
+    items = []
+    for appointment, patient in rows:
+        slot = appointment.slot
+        provider = slot.provider if slot is not None else None
+        service = appointment.service
+
+        age = None
+        if patient and getattr(patient, "dob", None):
+            today = datetime.today().date()
+            dob = patient.dob
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+        items.append(
+            {
+                "id": appointment.id,
+                "patient_name": patient.full_name if patient else None,
+                "patient_age": age,
+                "doctor_name": provider.full_name if provider else None,
+                "service_name": service.name if service else None,
+                "fee": provider.fees if provider else None,  # doctor's consultation fee
+                "appointment_datetime": slot.start_time if slot is not None else appointment.created_at,
+                "status": appointment.status,
+            }
+        )
+
+    return {"total": total, "limit": limit, "offset": offset, "items": items}
