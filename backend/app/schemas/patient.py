@@ -30,3 +30,16 @@ class PatientResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PatientAdminResponse(BaseModel):
+
+    id: UUID
+    full_name: str
+    email: str
+    phone: str
+    date_of_birth: date
+    total_appointments: int
+
+    class Config:
+        from_attributes = True
