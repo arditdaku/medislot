@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
+from app.schemas.provider import DoctorCreate, ProviderResponse, ProviderUpdate
 from app.db.session import get_db
 from app.models.provider import Provider
 from app.models.user import User
 from app.routes.auth import require_role
-from app.schemas.provider import DoctorCreate, ProviderResponse
 from app.core.security import hash_password
 
 router = APIRouter(prefix="/providers", tags=["providers"])
@@ -84,5 +83,60 @@ def create_doctor(
         db.rollback()
         raise
 
+    db.refresh(provider)
+    return provider
+
+
+
+@router.put("/{provider_id}", response_model=ProviderResponse)
+def update_provider(
+    provider_id: int,
+    payload: ProviderUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin", "doctor"])),
+):
+    provider = db.query(Provider).filter(Provider.id == provider_id).first()
+    if provider is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider not found",
+        )
+
+    if current_user.role == "doctor" and provider.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Doctors may only update their own provider record",
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(provider, field, value)
+
+    db.commit()
+    db.refresh(provider)
+    return provider
+
+
+@router.patch("/{provider_id}/deactivate", response_model=ProviderResponse)
+def deactivate_provider(
+    provider_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"])),
+):
+    provider = db.query(Provider).filter(Provider.id == provider_id).first()
+    if provider is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider not found",
+        )
+
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can deactivate providers",
+        )
+
+    provider.is_active = not provider.is_active
+    db.commit()
     db.refresh(provider)
     return provider
