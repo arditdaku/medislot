@@ -40,3 +40,9 @@ class ProviderResponse(BaseModel):
     updated_at: datetime
 
 
+class ProviderUpdate(BaseModel):
+    specialty: str | None = None
+    fees: int | None = None
+    address: str | None = None
+    about: str | None = None
+    working_hours: dict[str, Any] | None = None
