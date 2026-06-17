@@ -21,3 +21,7 @@ class AppointmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class StatusUpdate(BaseModel):
+    status: AppointmentStatus

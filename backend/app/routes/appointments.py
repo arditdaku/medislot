@@ -386,3 +386,102 @@ def reschedule_appointment(
             status_code=status.HTTP_409_CONFLICT,
             detail="Slot is already booked",
         )
+
+
+class AppointmentStatusUpdate(BaseModel):
+    status: AppointmentStatus
+
+
+VALID_STATUS_TRANSITIONS = {
+    AppointmentStatus.waiting: {
+        AppointmentStatus.in_progress,
+        AppointmentStatus.cancelled,
+        AppointmentStatus.no_show,
+    },
+    AppointmentStatus.in_progress: {
+        AppointmentStatus.completed,
+        AppointmentStatus.cancelled,
+        AppointmentStatus.no_show,
+    },
+    AppointmentStatus.completed: set(),
+    AppointmentStatus.no_show: set(),
+    AppointmentStatus.cancelled: set(),
+}
+
+
+@router.patch("/{appointment_id}/status", response_model=AppointmentResponse)
+def update_appointment_status(
+    appointment_id: UUID,
+    payload: AppointmentStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update appointment status for queue management.
+
+    Restricted to admins and doctors. Doctors may only update their own
+    appointments (403 otherwise). Invalid transitions return 400.
+    Cancelling releases the slot back to ``available`` in the same
+    transaction.
+    """
+    if current_user.role not in ("admin", "doctor"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins and doctors can update appointment status",
+        )
+
+    appointment = (
+        db.query(Appointment)
+        .filter(Appointment.id == appointment_id)
+        .with_for_update()
+        .first()
+    )
+    if appointment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Appointment not found",
+        )
+
+    is_admin = current_user.role == "admin"
+    if not is_admin:
+        provider_profile = current_user.provider
+        slot = (
+            db.query(AppointmentSlot)
+            .filter(AppointmentSlot.id == appointment.slot_id)
+            .first()
+        )
+        is_owner = (
+            provider_profile is not None
+            and slot is not None
+            and slot.provider_id == provider_profile.id
+        )
+        if not is_owner:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to update this appointment",
+            )
+
+    allowed_next = VALID_STATUS_TRANSITIONS.get(appointment.status, set())
+    if payload.status not in allowed_next:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot transition from {appointment.status} to {payload.status}",
+        )
+
+    try:
+        if payload.status == AppointmentStatus.cancelled:
+            slot = (
+                db.query(AppointmentSlot)
+                .filter(AppointmentSlot.id == appointment.slot_id)
+                .with_for_update()
+                .first()
+            )
+            if slot:
+                slot.status = SlotStatus.available
+
+        appointment.status = payload.status
+        db.commit()
+        db.refresh(appointment)
+        return appointment
+    except Exception:
+        db.rollback()
+        raise
