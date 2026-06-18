@@ -3,14 +3,14 @@
 Currently exposes the logged-in doctor's daily slot schedule, which the admin
 "All Appointments" view (SCRUM-106) and the doctor dashboard build on.
 """
-from datetime import date as date_type, datetime, time
-from typing import List
+from datetime import date as date_type, datetime, time, timedelta
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db.session import get_db
-from app.models.appointment import Appointment
+from app.models.appointment import Appointment, AppointmentStatus
 from app.models.patient import Patient
 from app.models.provider import Provider
 from app.models.service import Service
@@ -18,6 +18,7 @@ from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.user import User
 from app.routes.auth import require_role
 from app.schemas.slot import ScheduleSlotResponse
+from app.schemas.doctor import QueueAppointmentResponse
 
 router = APIRouter(prefix="/doctor", tags=["doctor"])
 
@@ -93,3 +94,64 @@ def get_schedule(
             )
         )
     return result
+
+
+
+@router.get("/queue", response_model=List[QueueAppointmentResponse])
+def get_queue(
+    status: Optional[AppointmentStatus] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["doctor"])),
+):
+    """Return the authenticated doctor's appointments for today, ordered by slot start time.
+
+    Optional `status` query param filters by appointment status.
+    """
+    provider = (
+        db.query(Provider)
+        .filter(Provider.user_id == current_user.id)
+        .first()
+    )
+    if provider is None:
+        return []
+
+    today = datetime.today().date()
+    start = datetime.combine(today, time.min)
+    end = start + timedelta(days=1)
+
+    q = (
+        db.query(Appointment, Patient)
+        .join(Patient, Patient.id == Appointment.patient_id)
+        .join(AppointmentSlot, AppointmentSlot.id == Appointment.slot_id)
+        .options(
+            joinedload(Appointment.slot)
+            .joinedload(AppointmentSlot.provider),
+            joinedload(Appointment.service),
+        )
+        .filter(AppointmentSlot.provider_id == provider.id)
+        .filter(AppointmentSlot.start_time >= start)
+        .filter(AppointmentSlot.start_time < end)
+    )
+
+    if status is not None:
+        q = q.filter(Appointment.status == status)
+
+    q = q.order_by(AppointmentSlot.start_time.asc())
+
+    rows = q.all()
+
+    items = []
+    for appointment, patient in rows:
+        slot = appointment.slot
+        service = appointment.service
+        items.append(
+            {
+                "appointment_id": appointment.id,
+                "patient_name": patient.full_name if patient else None,
+                "service_name": service.name if service else None,
+                "status": appointment.status,
+                "start_time": slot.start_time if slot is not None else appointment.created_at,
+            }
+        )
+
+    return items
