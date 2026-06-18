@@ -8,6 +8,7 @@ from app.routes import providers
 from app.routes import dashboard
 from app.routes import patients
 from app.routes import doctor
+from app.routes import admin
 
 
 from fastapi import Depends, FastAPI
@@ -38,6 +39,7 @@ app.include_router(services.router)
 app.include_router(dashboard.router)
 app.include_router(patients.router)
 app.include_router(doctor.router)
+app.include_router(admin.router)
 
 
 @app.get("/")
