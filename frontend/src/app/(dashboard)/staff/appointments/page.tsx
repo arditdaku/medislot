@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, X } from "lucide-react";
 
 type AppointmentStatus = "pending" | "completed" | "cancelled";
 
@@ -105,6 +106,19 @@ export default function StaffAppointmentsPage() {
     fetchAppointments();
   }, [filter]);
 
+  const handleStatusUpdate = async (
+    id: string,
+    status: AppointmentStatus,
+  ) => {
+    try {
+      await updateAppointmentStatus(id, status);
+      const data = await getAllAppointments(filter);
+      setAppointments(data);
+    } catch {
+      setError("Could not update appointment status.");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
       <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -190,7 +204,29 @@ export default function StaffAppointmentsPage() {
                     <td className="px-4 py-4">${appointment.fees}</td>
                     <td className="px-4 py-4">
                       {appointment.status === "pending" ? (
-                        appointment.status
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleStatusUpdate(appointment.id, "completed")
+                            }
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
+                            aria-label="Mark appointment as completed"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleStatusUpdate(appointment.id, "cancelled")
+                            }
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                            aria-label="Cancel appointment"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
                       ) : (
                         <span
                           className={`font-semibold capitalize ${getStatusClassName(
