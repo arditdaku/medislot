@@ -16,7 +16,15 @@ type Appointment = {
   status: AppointmentStatus;
 };
 
-const tableHeaders = ["#", "Patient", "Age", "Date & Time", "Doctor", "Fees", "Action"];
+const tableHeaders = [
+  "#",
+  "Patient",
+  "Age",
+  "Date & Time",
+  "Doctor",
+  "Fees",
+  "Action",
+];
 
 const appointmentFilters: { label: string; value: AppointmentFilter }[] = [
   { label: "All appointments", value: "all" },
@@ -34,7 +42,9 @@ async function getAllAppointments(filter: AppointmentFilter) {
     searchParams.set("status", filter);
   }
 
-  const response = await fetch(`${apiUrl}/appointments?${searchParams.toString()}`);
+  const response = await fetch(
+    `${apiUrl}/appointments?${searchParams.toString()}`,
+  );
 
   if (!response.ok) {
     throw new Error("Failed to fetch appointments");
@@ -57,6 +67,18 @@ async function updateAppointmentStatus(id: string, status: AppointmentStatus) {
   }
 
   return response.json();
+}
+
+function getStatusClassName(status: AppointmentStatus) {
+  if (status === "completed") {
+    return "text-primary";
+  }
+
+  if (status === "cancelled") {
+    return "text-destructive";
+  }
+
+  return "text-muted-foreground";
 }
 
 export default function StaffAppointmentsPage() {
@@ -93,11 +115,16 @@ export default function StaffAppointmentsPage() {
 
         <select
           value={filter}
-          onChange={(event) => setFilter(event.target.value as AppointmentFilter)}
+          onChange={(event) =>
+            setFilter(event.target.value as AppointmentFilter)
+          }
           className="min-h-11 rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
         >
           {appointmentFilters.map((appointmentFilter) => (
-            <option key={appointmentFilter.value} value={appointmentFilter.value}>
+            <option
+              key={appointmentFilter.value}
+              value={appointmentFilter.value}
+            >
               {appointmentFilter.label}
             </option>
           ))}
@@ -116,6 +143,7 @@ export default function StaffAppointmentsPage() {
                 ))}
               </tr>
             </thead>
+
             <tbody>
               {isLoading && (
                 <tr>
@@ -160,7 +188,19 @@ export default function StaffAppointmentsPage() {
                     <td className="px-4 py-4">{appointment.dateTime}</td>
                     <td className="px-4 py-4">{appointment.doctorName}</td>
                     <td className="px-4 py-4">${appointment.fees}</td>
-                    <td className="px-4 py-4">{appointment.status}</td>
+                    <td className="px-4 py-4">
+                      {appointment.status === "pending" ? (
+                        appointment.status
+                      ) : (
+                        <span
+                          className={`font-semibold capitalize ${getStatusClassName(
+                            appointment.status,
+                          )}`}
+                        >
+                          {appointment.status}
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
             </tbody>
