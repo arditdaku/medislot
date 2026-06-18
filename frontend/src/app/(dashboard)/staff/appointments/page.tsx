@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type AppointmentStatus = "pending" | "completed" | "cancelled";
 
@@ -61,6 +61,27 @@ async function updateAppointmentStatus(id: string, status: AppointmentStatus) {
 
 export default function StaffAppointmentsPage() {
   const [filter, setFilter] = useState<AppointmentFilter>("all");
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const data = await getAllAppointments(filter);
+        setAppointments(data);
+      } catch {
+        setError("Could not load appointments.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAppointments();
+  }, [filter]);
 
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
@@ -96,11 +117,35 @@ export default function StaffAppointmentsPage() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="px-4 py-4" colSpan={tableHeaders.length}>
-                  Loading appointments...
-                </td>
-              </tr>
+              {isLoading && (
+                <tr>
+                  <td className="px-4 py-4" colSpan={tableHeaders.length}>
+                    Loading appointments...
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && error && (
+                <tr>
+                  <td
+                    className="px-4 py-4 text-destructive"
+                    colSpan={tableHeaders.length}
+                  >
+                    {error}
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && !error && appointments.length === 0 && (
+                <tr>
+                  <td
+                    className="px-4 py-4 text-muted-foreground"
+                    colSpan={tableHeaders.length}
+                  >
+                    No appointments found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
