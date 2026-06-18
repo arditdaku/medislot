@@ -146,6 +146,23 @@ export default function StaffAppointmentsPage() {
                   </td>
                 </tr>
               )}
+
+              {!isLoading &&
+                !error &&
+                appointments.map((appointment, index) => (
+                  <tr
+                    key={appointment.id}
+                    className="border-t border-border transition-colors hover:bg-muted/40"
+                  >
+                    <td className="px-4 py-4 font-medium">{index + 1}</td>
+                    <td className="px-4 py-4">{appointment.patientName}</td>
+                    <td className="px-4 py-4">{appointment.patientAge}</td>
+                    <td className="px-4 py-4">{appointment.dateTime}</td>
+                    <td className="px-4 py-4">{appointment.doctorName}</td>
+                    <td className="px-4 py-4">${appointment.fees}</td>
+                    <td className="px-4 py-4">{appointment.status}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
