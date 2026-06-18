@@ -25,6 +25,40 @@ const appointmentFilters: { label: string; value: AppointmentFilter }[] = [
   { label: "Cancelled", value: "cancelled" },
 ];
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+async function getAllAppointments(filter: AppointmentFilter) {
+  const searchParams = new URLSearchParams();
+
+  if (filter !== "all") {
+    searchParams.set("status", filter);
+  }
+
+  const response = await fetch(`${apiUrl}/appointments?${searchParams.toString()}`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch appointments");
+  }
+
+  return response.json();
+}
+
+async function updateAppointmentStatus(id: string, status: AppointmentStatus) {
+  const response = await fetch(`${apiUrl}/appointments/${id}/status`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to update appointment status");
+  }
+
+  return response.json();
+}
+
 export default function StaffAppointmentsPage() {
   const [filter, setFilter] = useState<AppointmentFilter>("all");
 
