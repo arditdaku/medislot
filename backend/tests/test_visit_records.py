@@ -198,6 +198,41 @@ class VisitRecordCreateTest(unittest.TestCase):
         finally:
             db.close()
 
+    def test_fetch_visit_record_by_appointment_id(self):
+        """A visit record can be looked up by appointment_id."""
+        db = SessionLocal()
+        try:
+            visit_record = VisitRecord(
+                appointment_id=self.doctor_appointment_id,
+                doctor_id=self.provider_id,
+                notes="Visit notes for fetch test.",
+            )
+            db.add(visit_record)
+            db.commit()
+
+            fetched = (
+                db.query(VisitRecord)
+                .filter(VisitRecord.appointment_id == self.doctor_appointment_id)
+                .first()
+            )
+            assert fetched is not None
+            assert fetched.notes == "Visit notes for fetch test."
+        finally:
+            db.close()
+
+    def test_fetch_visit_record_not_found_returns_none(self):
+        """No visit record exists yet for this appointment (404 at endpoint)."""
+        db = SessionLocal()
+        try:
+            fetched = (
+                db.query(VisitRecord)
+                .filter(VisitRecord.appointment_id == self.other_appointment_id)
+                .first()
+            )
+            assert fetched is None
+        finally:
+            db.close()
+
 
 if __name__ == "__main__":
     unittest.main()

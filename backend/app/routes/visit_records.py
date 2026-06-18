@@ -1,3 +1,4 @@
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -61,3 +62,30 @@ def create_visit_record(
             status_code=status.HTTP_409_CONFLICT,
             detail="A visit record already exists for this appointment",
         )
+
+
+@router.get("/{appointment_id}", response_model=VisitRecordResponse)
+def get_visit_record(
+    appointment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Doctor/admin only. 404 if not found."""
+    if current_user.role not in ("doctor", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only doctors and admins can view visit records",
+        )
+
+    visit_record = (
+        db.query(VisitRecord)
+        .filter(VisitRecord.appointment_id == appointment_id)
+        .first()
+    )
+    if visit_record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Visit record not found",
+        )
+
+    return visit_record
