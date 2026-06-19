@@ -6,6 +6,7 @@ from app.models.slot import AppointmentSlot
 from app.models.appointment import Appointment
 from app.models.prescription import Prescription
 from app.models.notification import Notification
+from app.models.visit_record import VisitRecord
 
 __all__ = [
     "User",
@@ -16,4 +17,5 @@ __all__ = [
     "Appointment",
     "Prescription",
     "Notification",
+    "VisitRecord",
 ]

@@ -42,6 +42,15 @@ export interface DoctorCreatePayload {
   about?: string | null;
 }
 
+/** PUT /providers/{id} — `ProviderUpdate` (all fields optional). */
+export interface ProviderUpdatePayload {
+  specialty?: string | null;
+  fees?: number | null;
+  address?: string | null;
+  about?: string | null;
+  working_hours?: Record<string, unknown> | null;
+}
+
 /** GET /services — `ServiceResponse`. */
 export interface Service {
   id: number;
@@ -69,6 +78,36 @@ export interface Appointment {
   status: AppointmentStatus;
   created_at: string;
   updated_at: string;
+}
+
+/** GET /appointments/admin/ — one row of `AdminAppointmentResponse`. */
+export interface AdminAppointment {
+  id: string;
+  patient_name: string | null;
+  patient_age: number | null;
+  doctor_name: string | null;
+  service_name: string | null;
+  fee: number | null;
+  appointment_datetime: string;
+  status: AppointmentStatus;
+}
+
+/** GET /appointments/admin/ — paginated `AdminAppointmentListResponse`. */
+export interface AdminAppointmentList {
+  total: number;
+  limit: number;
+  offset: number;
+  items: AdminAppointment[];
+}
+
+/** Query filters for GET /appointments/admin/. */
+export interface AdminAppointmentFilters {
+  status?: AppointmentStatus;
+  service_id?: number;
+  /** ISO datetime string. */
+  date?: string;
+  limit?: number;
+  offset?: number;
 }
 
 /** DELETE /appointments/{id} response body. */

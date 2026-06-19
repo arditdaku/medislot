@@ -1,5 +1,11 @@
 import apiClient from "@/lib/api-client";
-import type { Appointment, CancelAppointmentResponse } from "@/types/api";
+import type {
+  AdminAppointmentFilters,
+  AdminAppointmentList,
+  Appointment,
+  AppointmentStatus,
+  CancelAppointmentResponse,
+} from "@/types/api";
 
 /** Book an available slot for a service. The patient is resolved from the JWT. */
 export async function bookAppointment(
@@ -38,5 +44,36 @@ export async function rescheduleAppointment(
 /** Fetch the authenticated patient's own appointments. */
 export async function getMyAppointments(): Promise<Appointment[]> {
   const { data } = await apiClient.get<Appointment[]>("/appointments/me");
+  return data;
+}
+
+/**
+ * Admin-only: list all appointments enriched with patient, doctor and service
+ * details (GET /appointments/admin/). Supports status/service/date filters and
+ * pagination; undefined filters are omitted.
+ */
+export async function getAllAppointments(
+  filters: AdminAppointmentFilters = {},
+): Promise<AdminAppointmentList> {
+  const { data } = await apiClient.get<AdminAppointmentList>(
+    "/appointments/admin/",
+    { params: filters },
+  );
+  return data;
+}
+
+/**
+ * Update an appointment's status for queue management (PATCH
+ * /appointments/{id}/status). Restricted to admins and the owning doctor;
+ * the backend rejects invalid status transitions.
+ */
+export async function updateAppointmentStatus(
+  id: string,
+  status: AppointmentStatus,
+): Promise<Appointment> {
+  const { data } = await apiClient.patch<Appointment>(
+    `/appointments/${id}/status`,
+    { status },
+  );
   return data;
 }
