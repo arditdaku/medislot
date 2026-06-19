@@ -84,6 +84,9 @@ export interface QueueAppointment {
   appointment_id: string;
   patient_name: string | null;
   service_name: string | null;
+  age: number | null;
+  fee: number | null;
+  payment_method: string | null;
   status: AppointmentStatus;
   start_time: string;
 }
