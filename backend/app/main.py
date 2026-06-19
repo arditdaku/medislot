@@ -8,6 +8,7 @@ from app.routes import providers
 from app.routes import dashboard
 from app.routes import patients
 from app.routes import doctor
+from app.routes import admin
 from app.routes import visit_records
 
 
