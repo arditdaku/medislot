@@ -20,7 +20,10 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const getTodayDate = () => new Date().toISOString().split("T")[0];
 
 async function getDoctorSchedule(date: string): Promise<ScheduleSlot[]> {
-  const response = await fetch(`${apiUrl}/doctor/schedule?date=${date}`);
+  const searchParams = new URLSearchParams({ date });
+  const response = await fetch(
+    `${apiUrl}/doctor/schedule?${searchParams.toString()}`,
+  );
 
   if (!response.ok) {
     throw new Error("Failed to fetch doctor schedule");
@@ -207,7 +210,9 @@ export default function DoctorSchedulePage() {
                             onClick={() => handleBlockSlot(slot.id)}
                             className="rounded-md border border-destructive/30 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive hover:text-destructive-foreground disabled:cursor-not-allowed disabled:opacity-70"
                           >
-                            {updatingSlotId === slot.id ? "Blocking..." : "Block"}
+                            {updatingSlotId === slot.id
+                              ? "Blocking..."
+                              : "Block"}
                           </button>
                         )}
 
