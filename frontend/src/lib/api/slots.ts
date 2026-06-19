@@ -14,3 +14,15 @@ export async function getSlots(providerId: number, date?: string): Promise<Slot[
   const { data } = await apiClient.get<Slot[]>("/slots", { params });
   return data;
 }
+
+/** Block a slot (admin or owning doctor only). */
+export async function blockSlot(id: string): Promise<Slot> {
+  const { data } = await apiClient.patch<Slot>(`/slots/${id}/block`);
+  return data;
+}
+
+/** Unblock a slot (admin or owning doctor only). */
+export async function unblockSlot(id: string): Promise<Slot> {
+  const { data } = await apiClient.patch<Slot>(`/slots/${id}/unblock`);
+  return data;
+}

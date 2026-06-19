@@ -41,3 +41,15 @@ export async function deactivateProvider(id: number): Promise<Provider> {
   );
   return data;
 }
+
+/** Fetch the authenticated doctor's own provider profile. */
+export async function getMyProvider(): Promise<Provider> {
+  const { data } = await apiClient.get<Provider>("/providers/me");
+  return data;
+}
+
+/** Update the authenticated doctor's own provider profile. */
+export async function updateMyProvider(id: number, payload: ProviderUpdatePayload): Promise<Provider> {
+  const { data } = await apiClient.put<Provider>(`/providers/${id}`, payload);
+  return data;
+}

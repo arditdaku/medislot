@@ -1,5 +1,6 @@
 import apiClient from "@/lib/api-client";
 import type {
+  AdminAppointment,
   AdminAppointmentFilters,
   AdminAppointmentList,
   Appointment,
@@ -75,5 +76,20 @@ export async function updateAppointmentStatus(
     `/appointments/${id}/status`,
     { status },
   );
+  return data;
+}
+
+/** Enriched appointment returned by GET /doctor/queue */
+export interface QueueAppointment {
+  appointment_id: string;
+  patient_name: string | null;
+  service_name: string | null;
+  status: AppointmentStatus;
+  start_time: string;
+}
+
+/** Fetch the authenticated doctor's own appointments for today. */
+export async function getDoctorAppointments(): Promise<QueueAppointment[]> {
+  const { data } = await apiClient.get<QueueAppointment[]>("/doctor/queue");
   return data;
 }
