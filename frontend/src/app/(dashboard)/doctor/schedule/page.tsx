@@ -1,60 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getDoctorSchedule as fetchDoctorSchedule } from "@/lib/api/doctor";
+import { blockSlot, unblockSlot } from "@/lib/api/slots";
+import type { Slot } from "@/types/api";
 
 type SlotStatus = "available" | "blocked" | "booked";
 
 type SlotPeriod = "Morning" | "Afternoon";
 
-type ScheduleSlot = {
-  id: string;
-  time: string;
+type ScheduleSlot = Slot & {
   period: SlotPeriod;
-  status: SlotStatus;
-  patientName?: string;
-  service?: string;
+  time: string;
+  patientName?: string | null;
+  service?: string | null;
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const getTodayDate = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
 
-const getTodayDate = () => new Date().toISOString().split("T")[0];
-
-async function getDoctorSchedule(date: string): Promise<ScheduleSlot[]> {
-  const searchParams = new URLSearchParams({ date });
-  const response = await fetch(
-    `${apiUrl}/doctor/schedule?${searchParams.toString()}`,
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch doctor schedule");
-  }
-
-  return response.json();
-}
-
-async function blockSlot(id: string) {
-  const response = await fetch(`${apiUrl}/doctor/schedule/${id}/block`, {
-    method: "PUT",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to block slot");
-  }
-
-  return response.json();
-}
-
-async function unblockSlot(id: string) {
-  const response = await fetch(`${apiUrl}/doctor/schedule/${id}/unblock`, {
-    method: "PUT",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to unblock slot");
-  }
-
-  return response.json();
-}
+  return `${year}-${month}-${day}`;
+};
 
 function getStatusClassName(status: SlotStatus) {
   if (status === "available") {
@@ -85,8 +54,22 @@ export default function DoctorSchedulePage() {
     setError("");
 
     try {
-      const data = await getDoctorSchedule(selectedDate);
-      setSlots(data);
+      const data = await fetchDoctorSchedule(selectedDate);
+      setSlots(
+        data.map((slot) => {
+          const start = new Date(slot.start_time);
+          const period: SlotPeriod = start.getHours() < 12 ? "Morning" : "Afternoon";
+
+          return {
+            ...slot,
+            period,
+            time: start.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          };
+        }),
+      );
     } catch {
       setError("Could not load the schedule for this day.");
     } finally {
@@ -198,7 +181,7 @@ export default function DoctorSchedulePage() {
 
                           {slot.status === "booked" && (
                             <p className="mt-2 text-sm text-muted-foreground">
-                              {slot.patientName} · {slot.service}
+                              {slot.patientName ?? "Booked patient"} · {slot.service ?? "Service"}
                             </p>
                           )}
                         </div>
