@@ -13,3 +13,12 @@ class QueueAppointmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class DoctorStatsResponse(BaseModel):
+    earnings_total: int
+    appointments_count: int
+    patients_count: int
+
+    class Config:
+        from_attributes = True

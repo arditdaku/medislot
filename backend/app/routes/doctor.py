@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 
 from app.db.session import get_db
 from app.models.appointment import Appointment, AppointmentStatus
@@ -19,6 +20,7 @@ from app.models.user import User
 from app.routes.auth import require_role
 from app.schemas.slot import ScheduleSlotResponse
 from app.schemas.doctor import QueueAppointmentResponse
+from app.schemas.doctor import DoctorStatsResponse
 
 router = APIRouter(prefix="/doctor", tags=["doctor"])
 
@@ -155,3 +157,55 @@ def get_queue(
         )
 
     return items
+
+
+
+@router.get("/stats", response_model=DoctorStatsResponse)
+def get_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["doctor"])),
+):
+    """Return aggregated stats for the authenticated doctor.
+
+    Values are computed from the database and scoped to the doctor's provider profile.
+    """
+    provider = (
+        db.query(Provider)
+        .filter(Provider.user_id == current_user.id)
+        .first()
+    )
+    if provider is None:
+        return {
+            "earnings_total": 0,
+            "appointments_count": 0,
+            "patients_count": 0,
+        }
+
+    appointments_count = (
+        db.query(func.count(Appointment.id))
+        .join(AppointmentSlot, Appointment.slot_id == AppointmentSlot.id)
+        .filter(AppointmentSlot.provider_id == provider.id)
+        .scalar() or 0
+    )
+
+    patients_count = (
+        db.query(func.count(func.distinct(Appointment.patient_id)))
+        .join(AppointmentSlot, Appointment.slot_id == AppointmentSlot.id)
+        .filter(AppointmentSlot.provider_id == provider.id)
+        .scalar() or 0
+    )
+
+    earnings_total = (
+        db.query(func.coalesce(func.sum(Provider.fees), 0))
+        .join(AppointmentSlot, Provider.id == AppointmentSlot.provider_id)
+        .join(Appointment, Appointment.slot_id == AppointmentSlot.id)
+        .filter(AppointmentSlot.provider_id == provider.id)
+        .filter(Appointment.status == AppointmentStatus.completed)
+        .scalar() or 0
+    )
+
+    return {
+        "earnings_total": int(earnings_total),
+        "appointments_count": int(appointments_count),
+        "patients_count": int(patients_count),
+    }
