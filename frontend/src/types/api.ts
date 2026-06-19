@@ -110,6 +110,17 @@ export interface AdminAppointmentFilters {
   offset?: number;
 }
 
+/** GET /admin/stats — `StatsResponse` (all values computed server-side). */
+export interface AdminStats {
+  total_doctors: number;
+  total_patients: number;
+  appointments_today: number;
+  available_slots: number;
+  no_shows: number;
+  queue_now: number;
+  earnings_total: number;
+}
+
 /** DELETE /appointments/{id} response body. */
 export interface CancelAppointmentResponse {
   message: string;
