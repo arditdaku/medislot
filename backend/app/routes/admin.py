@@ -59,11 +59,31 @@ def get_queue(
     for appointment, patient in rows:
         slot = appointment.slot
         service = appointment.service
+        
+        patient_age = None
+        if patient is not None and getattr(patient, "dob", None) is not None:
+            dob = patient.dob
+            today_date = today
+            patient_age = (
+                today_date.year
+                - dob.year
+                - ((today_date.month, today_date.day) < (dob.month, dob.day))
+            )
+
+        fee = None
+        if slot is not None and getattr(slot, "provider", None) is not None:
+            fee = slot.provider.fees
+
+        payment_method = None
+
         items.append(
             {
                 "appointment_id": appointment.id,
                 "patient_name": patient.full_name if patient else None,
                 "service_name": service.name if service else None,
+                "age": patient_age,
+                "fee": fee,
+                "payment_method": payment_method,
                 "status": appointment.status,
                 "start_time": slot.start_time if slot is not None else appointment.created_at,
             }

@@ -8,6 +8,9 @@ class QueueAppointmentResponse(BaseModel):
     appointment_id: UUID
     patient_name: Optional[str] = None
     service_name: Optional[str] = None
+    age: Optional[int] = None
+    fee: Optional[int] = None
+    payment_method: Optional[str] = None
     status: AppointmentStatus
     start_time: datetime
 
