@@ -32,14 +32,11 @@ export async function updateProvider(
 }
 
 /**
- * Admin-only: toggle a provider's active flag (PATCH
- * /providers/{id}/deactivate). Returns the updated provider.
+ * Admin-only: permanently delete a doctor (DELETE /providers/{id}). Rejected
+ * with 409 if the doctor has any appointments on record.
  */
-export async function deactivateProvider(id: number): Promise<Provider> {
-  const { data } = await apiClient.patch<Provider>(
-    `/providers/${id}/deactivate`
-  );
-  return data;
+export async function deleteProvider(id: number): Promise<void> {
+  await apiClient.delete(`/providers/${id}`);
 }
 
 /** Fetch the authenticated doctor's own provider profile. */

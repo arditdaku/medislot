@@ -29,9 +29,6 @@ import { bookAppointment } from "@/lib/api/appointments";
 import { getUser } from "@/lib/auth";
 import type { Appointment, Provider, Service, Slot } from "@/types/api";
 
-/** Hardcoded until `services.price` exists in the DB schema. */
-const CONSULTATION_FEE = 50;
-
 const STEP_LABELS = ["Service", "Doctor", "Date & Time", "Confirm"] as const;
 
 const DEPARTMENT_ICONS: { match: RegExp; icon: typeof Heart }[] = [
@@ -133,9 +130,10 @@ export default function BookingWizard() {
   useEffect(() => {
     if (step !== 2 || !department) return;
     let cancelled = false;
-    setProvidersLoading(true);
-    getProviders()
-      .then(async (all) => {
+    (async () => {
+      setProvidersLoading(true);
+      try {
+        const all = await getProviders();
         const matched = all.filter(
           (p) => p.specialty.toLowerCase() === department.toLowerCase(),
         );
@@ -146,8 +144,13 @@ export default function BookingWizard() {
           matched.map(async (p) => {
             try {
               const s = await getSlots(p.id);
+              const now = Date.now();
               const avail = s
-                .filter((x) => x.status === "available")
+                .filter(
+                  (x) =>
+                    x.status === "available" &&
+                    new Date(x.start_time).getTime() > now,
+                )
                 .sort((a, b) => a.start_time.localeCompare(b.start_time));
               return [p.id, avail[0]?.start_time ?? null] as const;
             } catch {
@@ -156,13 +159,12 @@ export default function BookingWizard() {
           }),
         );
         if (!cancelled) setNextAvailable(Object.fromEntries(entries));
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setProviders([]);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setProvidersLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -253,7 +255,9 @@ export default function BookingWizard() {
         <div className="mt-6 space-y-2 rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-bg-secondary)] p-5 text-left text-sm">
           <SummaryRow label="Service" value={service?.name ?? "—"} />
           <SummaryRow label="Doctor" value={provider?.full_name ?? "—"} />
+          <SummaryRow label="Location" value={provider?.address ?? "—"} />
           <SummaryRow label="Date" value={slotDate} />
+          <SummaryRow label="Fee" value={provider?.fees != null ? `$${provider.fees}` : "—"} />
           <SummaryRow label="Status" value={result.status} />
         </div>
 
@@ -387,7 +391,8 @@ export default function BookingWizard() {
             time={formatTime(slot.start_time)}
             durationMinutes={service.duration_minutes}
             patient={patient}
-            fee={CONSULTATION_FEE}
+            fee={provider.fees}
+            location={provider.address}
             submitting={submitting}
             error={bookingError}
             onBackToEdit={() => setStep(3)}

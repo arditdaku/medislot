@@ -60,6 +60,20 @@ export interface Service {
   created_at: string;
 }
 
+/** POST /services — `ServiceCreate` (admin only). */
+export interface ServiceCreatePayload {
+  name: string;
+  duration_minutes: number;
+  department: string;
+}
+
+/** PUT /services/{id} — `ServiceUpdate` (admin only; all fields optional). */
+export interface ServiceUpdatePayload {
+  name?: string;
+  duration_minutes?: number;
+  department?: string;
+}
+
 /** GET /slots — `SlotResponse`. `id` is a UUID. */
 export interface Slot {
   id: string;
@@ -67,6 +81,24 @@ export interface Slot {
   start_time: string;
   end_time: string;
   status: SlotStatus;
+}
+
+/** POST /slots/generate — `SlotGenerate` (admin only). */
+export interface SlotGeneratePayload {
+  provider_id: number;
+  /** Day to generate slots for, formatted as `YYYY-MM-DD`. */
+  date: string;
+  slot_duration_minutes?: number;
+}
+
+/** POST /slots/generate-range — `SlotGenerateRange` (admin only). */
+export interface SlotGenerateRangePayload {
+  provider_id: number;
+  /** Inclusive range start, formatted as `YYYY-MM-DD`. */
+  start_date: string;
+  /** Inclusive range end, formatted as `YYYY-MM-DD`. */
+  end_date: string;
+  slot_duration_minutes?: number;
 }
 
 /** `AppointmentResponse` — all id/uuid fields are strings. */
@@ -108,6 +140,18 @@ export interface AdminAppointmentFilters {
   date?: string;
   limit?: number;
   offset?: number;
+}
+
+/** GET /admin/queue — one row of `QueueAppointmentResponse` (today's queue). */
+export interface AdminQueueAppointment {
+  appointment_id: string;
+  patient_name: string | null;
+  service_name: string | null;
+  age: number | null;
+  fee: number | null;
+  payment_method: string | null;
+  status: AppointmentStatus;
+  start_time: string;
 }
 
 /** GET /admin/stats — `StatsResponse` (all values computed server-side). */

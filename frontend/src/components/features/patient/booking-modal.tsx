@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Calendar, Clock, Heart, User } from "lucide-react";
+import { ArrowRight, Calendar, Clock, Heart, MapPin, User } from "lucide-react";
 
 export type BookingReview = {
   service: { name: string; department: string };
@@ -9,8 +9,10 @@ export type BookingReview = {
   time: string;
   durationMinutes: number;
   patient: { name: string; email: string };
-  /** Hardcoded until `services.price` exists in the schema. */
-  fee: number;
+  /** The selected doctor's consultation fee (`provider.fees`), or null if unset. */
+  fee: number | null;
+  /** The selected doctor's clinic address (`provider.address`), or null if unset. */
+  location: string | null;
 };
 
 type BookingModalProps = BookingReview & {
@@ -55,6 +57,7 @@ export default function BookingModal({
   durationMinutes,
   patient,
   fee,
+  location,
   submitting,
   error,
   onBackToEdit,
@@ -77,6 +80,12 @@ export default function BookingModal({
           <Row icon={<span className="text-xs font-bold">{initials(doctor.name)}</span>} label="Doctor">
             <p className="font-semibold text-[var(--color-text-primary)]">{doctor.name}</p>
             <p className="text-sm text-[var(--color-text-secondary)]">{doctor.specialty}</p>
+          </Row>
+
+          <Row icon={<MapPin size={18} />} label="Location">
+            <p className="font-semibold text-[var(--color-text-primary)]">
+              {location ?? "Location not provided"}
+            </p>
           </Row>
 
           <Row icon={<Calendar size={18} />} label="Date">
@@ -109,7 +118,9 @@ export default function BookingModal({
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Consultation fee</p>
-            <p className="text-xl font-bold text-[var(--color-text-primary)]">${fee}</p>
+            <p className="text-xl font-bold text-[var(--color-text-primary)]">
+              {fee != null ? `$${fee}` : "—"}
+            </p>
           </div>
         </div>
 
