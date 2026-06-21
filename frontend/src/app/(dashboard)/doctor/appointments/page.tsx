@@ -1,19 +1,94 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getDoctorAppointments, updateAppointmentStatus, type QueueAppointment } from "@/lib/api/appointments";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Play,
+  CheckCircle2,
+  UserX,
+  XCircle,
+  Loader2,
+  AlertTriangle,
+  CalendarClock,
+  Activity,
+  History,
+} from "lucide-react";
+import {
+  getDoctorAppointments,
+  updateAppointmentStatus,
+  type QueueAppointment,
+} from "@/lib/api/appointments";
+import type { AppointmentStatus } from "@/types/api";
+import StatusBadge from "@/components/shared/status-badge";
+
+// Mirrors the backend VALID_STATUS_TRANSITIONS map so we only offer actions the
+// server accepts. Same set the admin Queue uses.
+const ACTIONS: Record<
+  AppointmentStatus,
+  { label: string; to: AppointmentStatus; icon: typeof Play; tone: string }[]
+> = {
+  waiting: [
+    { label: "Start", to: "in_progress", icon: Play, tone: "primary" },
+    { label: "No-show", to: "no_show", icon: UserX, tone: "muted" },
+    { label: "Cancel", to: "cancelled", icon: XCircle, tone: "danger" },
+  ],
+  in_progress: [
+    { label: "Complete", to: "completed", icon: CheckCircle2, tone: "success" },
+    { label: "No-show", to: "no_show", icon: UserX, tone: "muted" },
+    { label: "Cancel", to: "cancelled", icon: XCircle, tone: "danger" },
+  ],
+  confirmed: [],
+  completed: [],
+  cancelled: [],
+  no_show: [],
+};
+
+const TONE_CLASSES: Record<string, string> = {
+  primary:
+    "border-primary/30 bg-primary-50 text-primary hover:bg-primary hover:text-white",
+  success:
+    "border-success/30 bg-success-light text-success hover:bg-success hover:text-white",
+  danger:
+    "border-danger/30 bg-danger-light text-danger hover:bg-danger hover:text-white",
+  muted: "border-border bg-white text-text-secondary hover:bg-bg-muted",
+};
+
+const PAST_STATUSES: AppointmentStatus[] = ["completed", "cancelled", "no_show"];
+
+function formatDateTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function initials(name: string | null) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
 export default function DoctorAppointmentsPage() {
   const [appointments, setAppointments] = useState<QueueAppointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const toast = useToast();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     getDoctorAppointments()
       .then((data) => {
         if (!cancelled) setAppointments(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Could not load appointments.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -23,139 +98,188 @@ export default function DoctorAppointmentsPage() {
     };
   }, []);
 
-  async function handleStatusUpdate(id: string, status: "completed" | "cancelled") {
+  async function changeStatus(id: string, status: AppointmentStatus) {
+    setPendingId(id);
+    setError("");
     try {
       await updateAppointmentStatus(id, status);
-      const refreshed = await getDoctorAppointments();
-      setAppointments(refreshed);
-      
-      if (status === "completed") {
-        toast.success("Appointment marked as completed");
-      } else if (status === "cancelled") {
-        toast.success("Appointment cancelled successfully");
-      }
-    } catch (error) {
-      // Shfaq toast error
-      toast.error("Failed to update appointment status");
-      console.error(error);
+      setAppointments(await getDoctorAppointments());
+    } catch {
+      setError("Could not update the appointment.");
+    } finally {
+      setPendingId(null);
     }
   }
 
-  function formatDateTime(iso: string) {
-    const d = new Date(iso);
-    return d.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  const { upcoming, ongoing, past } = useMemo(() => {
+    const byTimeAsc = (a: QueueAppointment, b: QueueAppointment) =>
+      a.start_time.localeCompare(b.start_time);
+    return {
+      // Soonest first.
+      upcoming: appointments
+        .filter((a) => a.status === "waiting" || a.status === "confirmed")
+        .sort(byTimeAsc),
+      ongoing: appointments
+        .filter((a) => a.status === "in_progress")
+        .sort(byTimeAsc),
+      // Most recent first.
+      past: appointments
+        .filter((a) => PAST_STATUSES.includes(a.status))
+        .sort((a, b) => b.start_time.localeCompare(a.start_time)),
+    };
+  }, [appointments]);
+
+  function renderRows(items: QueueAppointment[]) {
+    return items.map((appt, idx) => {
+      const actions = ACTIONS[appt.status] ?? [];
+      const isPending = pendingId === appt.appointment_id;
+      return (
+        <tr
+          key={appt.appointment_id}
+          className="border-b border-border last:border-0"
+        >
+          <td className="px-6 py-4 text-text-secondary">{idx + 1}</td>
+          <td className="px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary">
+                {initials(appt.patient_name)}
+              </div>
+              <span className="font-medium text-text-primary">
+                {appt.patient_name ?? "—"}
+              </span>
+            </div>
+          </td>
+          <td className="px-6 py-4 text-text-secondary">
+            {appt.service_name ?? "—"}
+          </td>
+          <td className="px-6 py-4 text-text-secondary">{appt.age ?? "—"}</td>
+          <td className="px-6 py-4 text-text-secondary">
+            {formatDateTime(appt.start_time)}
+          </td>
+          <td className="px-6 py-4 text-text-secondary">
+            {appt.fee != null ? `$${appt.fee}` : "—"}
+          </td>
+          <td className="px-6 py-4">
+            <div className="flex items-center gap-3">
+              <StatusBadge status={appt.status} />
+              {actions.length > 0 && (
+                <div className="flex items-center gap-2">
+                  {actions.map((a) => (
+                    <button
+                      key={a.to}
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => changeStatus(appt.appointment_id, a.to)}
+                      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${TONE_CLASSES[a.tone]}`}
+                    >
+                      {isPending ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <a.icon size={13} />
+                      )}
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      );
     });
   }
 
-  function initials(name: string | null) {
-    if (!name) return "?";
-    return name
-      .split(" ")
-      .map((p) => p[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
+  function renderSection({
+    title,
+    icon,
+    accent,
+    items,
+    emptyText,
+  }: {
+    title: string;
+    icon: React.ReactNode;
+    accent: string;
+    items: QueueAppointment[];
+    emptyText: string;
+  }) {
+    return (
+      <section className="overflow-hidden rounded-2xl border border-border bg-white">
+        <div className="flex items-center gap-2 border-b border-border px-6 py-4">
+          <span className={`grid h-7 w-7 place-items-center rounded-lg ${accent}`}>
+            {icon}
+          </span>
+          <h2 className="font-semibold text-text-primary">{title}</h2>
+          <span className="ml-1 rounded-full bg-bg-muted px-2 py-0.5 text-xs font-semibold text-text-secondary">
+            {items.length}
+          </span>
+        </div>
+
+        {items.length === 0 ? (
+          <p className="px-6 py-8 text-center text-sm text-text-muted">
+            {emptyText}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[960px] text-left text-sm">
+              <thead className="border-b border-border text-text-muted">
+                <tr>
+                  <th className="px-6 py-3 font-semibold">#</th>
+                  <th className="px-6 py-3 font-semibold">Patient</th>
+                  <th className="px-6 py-3 font-semibold">Service</th>
+                  <th className="px-6 py-3 font-semibold">Age</th>
+                  <th className="px-6 py-3 font-semibold">Date &amp; Time</th>
+                  <th className="px-6 py-3 font-semibold">Fees</th>
+                  <th className="px-6 py-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>{renderRows(items)}</tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    );
   }
 
   return (
-    <div className="min-h-screen">
-      <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">All Appointments</h1>
+    <div className="min-h-screen space-y-6">
+      <h1 className="text-3xl font-bold text-text-primary">My Appointments</h1>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-[var(--color-border)] bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-            <tr>
-              <th className="px-6 py-4 font-semibold">#</th>
-              <th className="px-6 py-4 font-semibold">Patient</th>
-              <th className="px-6 py-4 font-semibold">Payment</th>
-              <th className="px-6 py-4 font-semibold">Age</th>
-              <th className="px-6 py-4 font-semibold">Date &amp; Time</th>
-              <th className="px-6 py-4 font-semibold">Fees</th>
-              <th className="px-6 py-4 font-semibold">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-[var(--color-text-muted)]">
-                  Loading appointments…
-                </td>
-              </tr>
-            ) : appointments.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-[var(--color-text-muted)]">
-                  No appointments found.
-                </td>
-              </tr>
-            ) : (
-              appointments.map((appt, idx) => (
-                <tr key={appt.appointment_id} className="border-b border-[var(--color-border)] last:border-0">
-                  <td className="px-6 py-4 text-[var(--color-text-secondary)]">{idx + 1}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-50)] text-xs font-bold text-[var(--color-primary)]">
-                        {initials(appt.patient_name)}
-                      </div>
-                      <span className="font-medium text-[var(--color-text-primary)]">
-                        {appt.patient_name ?? "—"}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {appt.payment_method ? (
-                      <span className="inline-flex items-center rounded-full border border-[var(--color-border)] px-3 py-1 text-xs font-semibold uppercase text-[var(--color-text-secondary)]">
-                        {appt.payment_method}
-                      </span>
-                    ) : (
-                      <span className="text-[var(--color-text-muted)]">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-[var(--color-text-secondary)]">
-                    {appt.age ?? "—"}
-                  </td>
-                  <td className="px-6 py-4 text-[var(--color-text-secondary)]">
-                    {formatDateTime(appt.start_time)}
-                  </td>
-                  <td className="px-6 py-4 text-[var(--color-text-secondary)]">
-                    {appt.fee != null ? `€${appt.fee}` : "—"}
-                  </td>
-                  <td className="px-6 py-4">
-                    {appt.status === "completed" ? (
-                      <span className="font-semibold text-[var(--color-success)]">Completed</span>
-                    ) : appt.status === "cancelled" ? (
-                      <span className="font-semibold text-[var(--color-danger)]">Cancelled</span>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          aria-label="Mark completed"
-                          onClick={() => handleStatusUpdate(appt.appointment_id, "completed")}
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-success)] hover:bg-[var(--color-bg-muted)]"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Cancel appointment"
-                          onClick={() => handleStatusUpdate(appt.appointment_id, "cancelled")}
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-danger)] hover:bg-[var(--color-bg-muted)]"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-light px-4 py-3 text-sm font-medium text-danger">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="rounded-2xl border border-border bg-white px-6 py-12 text-center text-text-muted">
+          Loading appointments…
+        </div>
+      ) : (
+        <>
+          {renderSection({
+            title: "Ongoing",
+            icon: <Activity size={15} className="text-purple" />,
+            accent: "bg-purple-light",
+            items: ongoing,
+            emptyText: "No appointment in progress right now.",
+          })}
+          {renderSection({
+            title: "Upcoming",
+            icon: <CalendarClock size={15} className="text-primary" />,
+            accent: "bg-primary-50",
+            items: upcoming,
+            emptyText: "No upcoming appointments.",
+          })}
+          {renderSection({
+            title: "Past",
+            icon: <History size={15} className="text-text-muted" />,
+            accent: "bg-bg-muted",
+            items: past,
+            emptyText: "No past appointments yet.",
+          })}
+        </>
+      )}
     </div>
   );
 }

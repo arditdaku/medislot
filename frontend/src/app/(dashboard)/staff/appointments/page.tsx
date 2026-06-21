@@ -1,156 +1,117 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-type AppointmentStatus = "pending" | "completed" | "cancelled";
+import { getAllAppointments } from "@/lib/api/appointments";
+import type {
+  AdminAppointment,
+  AppointmentStatus,
+} from "@/types/api";
+import StatusBadge from "@/components/shared/status-badge";
+import Select from "@/components/ui/select";
 
 type AppointmentFilter = "all" | AppointmentStatus;
 
-type Appointment = {
-  id: string;
-  patientName: string;
-  patientAge: number;
-  dateTime: string;
-  doctorName: string;
-  fees: number;
-  status: AppointmentStatus;
-};
-
-const tableHeaders = [
+const TABLE_HEADERS = [
   "#",
   "Patient",
   "Age",
   "Date & Time",
   "Doctor",
+  "Service",
   "Fees",
-  "Action",
+  "Status",
 ];
 
-const appointmentFilters: { label: string; value: AppointmentFilter }[] = [
+const APPOINTMENT_FILTERS: { label: string; value: AppointmentFilter }[] = [
   { label: "All appointments", value: "all" },
-  { label: "Pending", value: "pending" },
+  { label: "Waiting", value: "waiting" },
+  { label: "In progress", value: "in_progress" },
   { label: "Completed", value: "completed" },
   { label: "Cancelled", value: "cancelled" },
+  { label: "No show", value: "no_show" },
 ];
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-async function getAllAppointments(filter: AppointmentFilter) {
-  const searchParams = new URLSearchParams();
-
-  if (filter !== "all") {
-    searchParams.set("status", filter);
-  }
-
-  const response = await fetch(
-    `${apiUrl}/appointments?${searchParams.toString()}`,
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch appointments");
-  }
-
-  return response.json();
-}
-
-async function updateAppointmentStatus(id: string, status: AppointmentStatus) {
-  const response = await fetch(`${apiUrl}/appointments/${id}/status`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ status }),
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
-
-  if (!response.ok) {
-    throw new Error("Failed to update appointment status");
-  }
-
-  return response.json();
 }
 
-function getStatusClassName(status: AppointmentStatus) {
-  if (status === "completed") {
-    return "text-primary";
-  }
-
-  if (status === "cancelled") {
-    return "text-destructive";
-  }
-
-  return "text-muted-foreground";
+function initials(name: string | null): string {
+  if (!name) return "–";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "–";
 }
 
 export default function StaffAppointmentsPage() {
   const [filter, setFilter] = useState<AppointmentFilter>("all");
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      setIsLoading(true);
-      setError("");
-
-      try {
-        const data = await getAllAppointments(filter);
-        setAppointments(data);
-      } catch {
-        setError("Could not load appointments.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAppointments();
+  const loadAppointments = useCallback(async () => {
+    // Bug fix: send a typed filters object (not a bare string), and read the
+    // paginated `items` array off the response instead of treating the whole
+    // payload as an array.
+    const data = await getAllAppointments(
+      filter === "all" ? { limit: 100 } : { status: filter, limit: 100 },
+    );
+    setAppointments(data.items);
   }, [filter]);
 
-  const handleStatusUpdate = async (
-    id: string,
-    status: AppointmentStatus,
-  ) => {
-    try {
-      await updateAppointmentStatus(id, status);
-      const data = await getAllAppointments(filter);
-      setAppointments(data);
-    } catch {
-      setError("Could not update appointment status.");
-    }
-  };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        await loadAppointments();
+      } catch {
+        if (!cancelled) setError("Could not load appointments.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAppointments]);
 
   return (
-    <main className="min-h-screen bg-background px-6 py-8 text-foreground">
-      <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-6">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-primary">Admin</p>
-          <h1 className="mt-2 text-3xl font-bold">All Appointments</h1>
+          <h1 className="mt-1 text-3xl font-bold text-text-primary">
+            All Appointments
+          </h1>
         </div>
 
-        <select
+        <Select
+          className="w-full sm:w-56"
+          ariaLabel="Filter by status"
           value={filter}
-          onChange={(event) =>
-            setFilter(event.target.value as AppointmentFilter)
-          }
-          className="min-h-11 rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
-        >
-          {appointmentFilters.map((appointmentFilter) => (
-            <option
-              key={appointmentFilter.value}
-              value={appointmentFilter.value}
-            >
-              {appointmentFilter.label}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setFilter(v)}
+          options={APPOINTMENT_FILTERS.map((f) => ({
+            value: f.value,
+            label: f.label,
+          }))}
+        />
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-border bg-bg-primary shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] border-collapse text-left text-sm">
-            <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
+            <thead className="border-b border-border bg-bg-muted/60 text-xs uppercase text-text-muted">
               <tr>
-                {tableHeaders.map((header) => (
+                {TABLE_HEADERS.map((header) => (
                   <th key={header} className="px-4 py-3 font-semibold">
                     {header}
                   </th>
@@ -161,8 +122,11 @@ export default function StaffAppointmentsPage() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td className="px-4 py-4" colSpan={tableHeaders.length}>
-                    Loading appointments...
+                  <td
+                    className="px-4 py-8 text-center text-text-muted"
+                    colSpan={TABLE_HEADERS.length}
+                  >
+                    Loading appointments…
                   </td>
                 </tr>
               )}
@@ -170,8 +134,8 @@ export default function StaffAppointmentsPage() {
               {!isLoading && error && (
                 <tr>
                   <td
-                    className="px-4 py-4 text-destructive"
-                    colSpan={tableHeaders.length}
+                    className="px-4 py-8 text-center text-danger"
+                    colSpan={TABLE_HEADERS.length}
                   >
                     {error}
                   </td>
@@ -181,8 +145,8 @@ export default function StaffAppointmentsPage() {
               {!isLoading && !error && appointments.length === 0 && (
                 <tr>
                   <td
-                    className="px-4 py-4 text-muted-foreground"
-                    colSpan={tableHeaders.length}
+                    className="px-4 py-8 text-center text-text-muted"
+                    colSpan={TABLE_HEADERS.length}
                   >
                     No appointments found.
                   </td>
@@ -194,48 +158,38 @@ export default function StaffAppointmentsPage() {
                 appointments.map((appointment, index) => (
                   <tr
                     key={appointment.id}
-                    className="border-t border-border transition-colors hover:bg-muted/40"
+                    className="border-t border-border-light transition-colors hover:bg-bg-muted/40"
                   >
-                    <td className="px-4 py-4 font-medium">{index + 1}</td>
-                    <td className="px-4 py-4">{appointment.patientName}</td>
-                    <td className="px-4 py-4">{appointment.patientAge}</td>
-                    <td className="px-4 py-4">{appointment.dateTime}</td>
-                    <td className="px-4 py-4">{appointment.doctorName}</td>
-                    <td className="px-4 py-4">${appointment.fees}</td>
+                    <td className="px-4 py-4 font-medium text-text-secondary">
+                      {index + 1}
+                    </td>
                     <td className="px-4 py-4">
-                      {appointment.status === "pending" ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleStatusUpdate(appointment.id, "completed")
-                            }
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
-                            aria-label="Mark appointment as completed"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleStatusUpdate(appointment.id, "cancelled")
-                            }
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                            aria-label="Cancel appointment"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span
-                          className={`font-semibold capitalize ${getStatusClassName(
-                            appointment.status,
-                          )}`}
-                        >
-                          {appointment.status}
+                      <div className="flex items-center gap-3">
+                        <span className="grid h-9 w-9 flex-none place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary">
+                          {initials(appointment.patient_name)}
                         </span>
-                      )}
+                        <span className="font-medium text-text-primary">
+                          {appointment.patient_name ?? "—"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-text-secondary">
+                      {appointment.patient_age ?? "—"}
+                    </td>
+                    <td className="px-4 py-4 text-text-secondary">
+                      {formatDateTime(appointment.appointment_datetime)}
+                    </td>
+                    <td className="px-4 py-4 text-text-secondary">
+                      {appointment.doctor_name ?? "—"}
+                    </td>
+                    <td className="px-4 py-4 text-text-secondary">
+                      {appointment.service_name ?? "—"}
+                    </td>
+                    <td className="px-4 py-4 text-text-secondary">
+                      {appointment.fee != null ? `$${appointment.fee}` : "—"}
+                    </td>
+                    <td className="px-4 py-4">
+                      <StatusBadge status={appointment.status} />
                     </td>
                   </tr>
                 ))}
@@ -243,6 +197,6 @@ export default function StaffAppointmentsPage() {
           </table>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

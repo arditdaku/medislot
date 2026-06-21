@@ -1,6 +1,5 @@
 import apiClient from "@/lib/api-client";
 import type {
-  AdminAppointment,
   AdminAppointmentFilters,
   AdminAppointmentList,
   Appointment,
@@ -91,8 +90,8 @@ export interface QueueAppointment {
   start_time: string;
 }
 
-/** Fetch the authenticated doctor's own appointments for today. */
+/** Fetch all of the authenticated doctor's appointments (any date). */
 export async function getDoctorAppointments(): Promise<QueueAppointment[]> {
-  const { data } = await apiClient.get<QueueAppointment[]>("/doctor/queue");
+  const { data } = await apiClient.get<QueueAppointment[]>("/doctor/appointments");
   return data;
 }

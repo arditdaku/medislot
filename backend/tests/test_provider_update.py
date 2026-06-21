@@ -1,12 +1,13 @@
-"""Tests for PUT /providers/{id} and PATCH /providers/{id}/deactivate.
+"""Tests for PUT /providers/{id} and DELETE /providers/{id}.
 
-Tests the provider update and deactivation endpoints with:
+Tests the provider update and delete endpoints with:
 - Valid partial updates (specialty, working_hours)
 - Role-based access control (admin, doctor)
 - Doctor ownership validation (doctors only update their own)
 - 404 handling for nonexistent providers
-- Deactivate toggle behavior
+- Delete: success, 403 for doctors, 409 when appointments exist
 """
+import datetime as dt
 import sys
 import unittest
 from pathlib import Path
@@ -19,9 +20,13 @@ if str(BACKEND_DIR) not in sys.path:
 from fastapi import HTTPException
 
 from app.db.session import SessionLocal
+from app.models.appointment import Appointment, AppointmentStatus
+from app.models.patient import Patient
 from app.models.provider import Provider
+from app.models.service import Service
+from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.user import User
-from app.routes.providers import update_provider, deactivate_provider
+from app.routes.providers import update_provider, delete_provider
 from app.schemas.provider import ProviderUpdate
 
 
@@ -173,52 +178,102 @@ class ProviderUpdateTest(unittest.TestCase):
         finally:
             db.close()
 
-    def test_admin_can_deactivate_provider(self):
-        """Test that an admin can deactivate a provider."""
+    def test_admin_can_delete_provider(self):
+        """An admin can delete a doctor with no appointments; the provider and
+        their login account are both removed."""
         db = SessionLocal()
         try:
             admin = db.query(User).filter(User.id == self.admin_user_id).first()
 
-            result = deactivate_provider(self.provider_id, db, admin)
+            result = delete_provider(self.provider_id, db, admin)
 
-            assert result.is_active is False
+            assert result is None
+            assert (
+                db.query(Provider).filter(Provider.id == self.provider_id).first()
+                is None
+            )
+            assert (
+                db.query(User).filter(User.id == self.doctor_user_id).first()
+                is None
+            )
         finally:
             db.close()
 
-    def test_deactivate_toggles_back_to_active(self):
-        """Test that calling deactivate twice toggles is_active back to True."""
+    def test_delete_blocked_when_appointments_exist(self):
+        """Deleting a doctor with appointments on record returns 409."""
         db = SessionLocal()
         try:
+            patient_user = User(
+                email=f"patient-{self.marker}@example.test",
+                password_hash="test",
+                role="patient",
+                full_name="Pat Test",
+            )
+            db.add(patient_user)
+            db.flush()
+            patient = Patient(
+                user_id=patient_user.id,
+                full_name="Pat Test",
+                dob=dt.date(1990, 1, 1),
+                phone="123",
+                address="Addr",
+            )
+            service = Service(
+                name=f"Service-{self.marker}",
+                duration_minutes=30,
+                department="General",
+            )
+            db.add_all([patient, service])
+            db.flush()
+
+            start = dt.datetime.now() + dt.timedelta(days=1)
+            slot = AppointmentSlot(
+                provider_id=self.provider_id,
+                start_time=start,
+                end_time=start + dt.timedelta(minutes=30),
+                status=SlotStatus.booked,
+            )
+            db.add(slot)
+            db.flush()
+            db.add(
+                Appointment(
+                    patient_id=patient.id,
+                    slot_id=slot.id,
+                    service_id=service.id,
+                    status=AppointmentStatus.waiting,
+                )
+            )
+            db.commit()
+
             admin = db.query(User).filter(User.id == self.admin_user_id).first()
+            with self.assertRaises(HTTPException) as ctx:
+                delete_provider(self.provider_id, db, admin)
 
-            deactivate_provider(self.provider_id, db, admin)
-            result = deactivate_provider(self.provider_id, db, admin)
-
-            assert result.is_active is True
+            assert ctx.exception.status_code == 409
         finally:
             db.close()
 
-    def test_doctor_cannot_deactivate_provider(self):
-        """Test that a doctor (even the owner) cannot deactivate a provider (403)."""
+    def test_doctor_cannot_delete_provider(self):
+        """A doctor (even the owner) cannot delete a provider (403)."""
         db = SessionLocal()
         try:
             doctor = db.query(User).filter(User.id == self.doctor_user_id).first()
 
             with self.assertRaises(HTTPException) as ctx:
-                deactivate_provider(self.provider_id, db, doctor)
+                delete_provider(self.provider_id, db, doctor)
 
             assert ctx.exception.status_code == 403
         finally:
             db.close()
 
-    def test_deactivate_nonexistent_provider_returns_404(self):
-        """Test that deactivating a nonexistent provider returns 404."""
+    def test_delete_nonexistent_provider_returns_404(self):
+        """Deleting a nonexistent provider returns 404."""
         db = SessionLocal()
         try:
             admin = db.query(User).filter(User.id == self.admin_user_id).first()
 
             with self.assertRaises(HTTPException) as ctx:
-                deactivate_provider(999999, db, admin)
+                delete_provider(999999, db, admin)
 
             assert ctx.exception.status_code == 404
         finally:

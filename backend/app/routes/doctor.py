@@ -3,12 +3,12 @@
 Currently exposes the logged-in doctor's daily slot schedule, which the admin
 "All Appointments" view (SCRUM-106) and the doctor dashboard build on.
 """
-from datetime import date as date_type, datetime, time, timedelta
+from datetime import date as date_type, datetime, time, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 from app.db.session import get_db
 from app.models.appointment import Appointment, AppointmentStatus
@@ -23,6 +23,44 @@ from app.schemas.doctor import QueueAppointmentResponse
 from app.schemas.doctor import DoctorStatsResponse
 
 router = APIRouter(prefix="/doctor", tags=["doctor"])
+
+
+def _serialize_queue_rows(rows) -> list:
+    """Build the enriched queue payload from (Appointment, Patient) rows."""
+    today = datetime.today().date()
+    items = []
+    for appointment, patient in rows:
+        slot = appointment.slot
+        service = appointment.service
+
+        patient_age = None
+        if patient is not None and getattr(patient, "dob", None) is not None:
+            dob = patient.dob
+            patient_age = (
+                today.year
+                - dob.year
+                - ((today.month, today.day) < (dob.month, dob.day))
+            )
+
+        fee = None
+        if slot is not None and getattr(slot, "provider", None) is not None:
+            fee = slot.provider.fees
+
+        items.append(
+            {
+                "appointment_id": appointment.id,
+                "patient_name": patient.full_name if patient else None,
+                "service_name": service.name if service else None,
+                "age": patient_age,
+                "fee": fee,
+                "payment_method": None,
+                "status": appointment.status,
+                "start_time": slot.start_time
+                if slot is not None
+                else appointment.created_at,
+            }
+        )
+    return items
 
 
 @router.get("/schedule", response_model=List[ScheduleSlotResponse])
@@ -140,43 +178,52 @@ def get_queue(
 
     q = q.order_by(AppointmentSlot.start_time.asc())
 
-    rows = q.all()
+    return _serialize_queue_rows(q.all())
 
-    items = []
-    for appointment, patient in rows:
-        slot = appointment.slot
-        service = appointment.service
-        
-        patient_age = None
-        if patient is not None and getattr(patient, "dob", None) is not None:
-            dob = patient.dob
-            today_date = today
-            patient_age = (
-                today_date.year
-                - dob.year
-                - ((today_date.month, today_date.day) < (dob.month, dob.day))
-            )
 
-        fee = None
-        if slot is not None and getattr(slot, "provider", None) is not None:
-            fee = slot.provider.fees
+@router.get("/appointments", response_model=List[QueueAppointmentResponse])
+def get_appointments(
+    status: Optional[AppointmentStatus] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["doctor"])),
+):
+    """Return all of the authenticated doctor's appointments (any date).
 
-        payment_method = None
+    Unlike ``/doctor/queue`` (which is limited to today), this powers the
+    doctor's "All Appointments" page, so future and past bookings are included.
+    Ordered by slot start time, newest first. Optional `status` filter.
+    """
+    provider = (
+        db.query(Provider)
+        .filter(Provider.user_id == current_user.id)
+        .first()
+    )
+    if provider is None:
+        return []
 
-        items.append(
-            {
-                "appointment_id": appointment.id,
-                "patient_name": patient.full_name if patient else None,
-                "service_name": service.name if service else None,
-                "age": patient_age,
-                "fee": fee,
-                "payment_method": payment_method,
-                "status": appointment.status,
-                "start_time": slot.start_time if slot is not None else appointment.created_at,
-            }
+    q = (
+        db.query(Appointment, Patient)
+        .join(Patient, Patient.id == Appointment.patient_id)
+        .join(AppointmentSlot, AppointmentSlot.id == Appointment.slot_id)
+        .options(
+            joinedload(Appointment.slot).joinedload(AppointmentSlot.provider),
+            joinedload(Appointment.service),
         )
+        .filter(AppointmentSlot.provider_id == provider.id)
+    )
 
-    return items
+    if status is not None:
+        q = q.filter(Appointment.status == status)
+
+    # Soonest first: upcoming appointments ordered nearest→furthest, with past
+    # appointments after them.
+    now = datetime.now(timezone.utc)
+    q = q.order_by(
+        case((AppointmentSlot.start_time >= now, 0), else_=1),
+        AppointmentSlot.start_time.asc(),
+    )
+
+    return _serialize_queue_rows(q.all())
 
 
 
