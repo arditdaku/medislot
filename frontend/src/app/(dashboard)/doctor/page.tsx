@@ -21,16 +21,18 @@ export default function DoctorDashboard() {
       ]);
       setStats(statsData);
       setAppointments(queueData);
-    } catch (error: any) {
-      toast.error('Failed to load dashboard', {
-        description: error.response?.data?.detail || 'Please refresh the page and try again.',
-      });
+    } catch (error) {
+      const detail =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail ?? 'Please refresh the page and try again.';
+      toast.error('Failed to load dashboard', { description: detail });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, []);
 
@@ -88,7 +90,7 @@ export default function DoctorDashboard() {
       {/* Today's Schedule */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
         <div className="p-6 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">Today's schedule</h2>
+          <h2 className="text-xl font-bold text-gray-900">Today&apos;s schedule</h2>
           <p className="text-sm text-gray-500 mt-1">
             {appointments.length} appointment{appointments.length !== 1 ? 's' : ''} scheduled
           </p>
