@@ -4,7 +4,7 @@ Implements atomic slot booking using PostgreSQL row-level locking
 (``SELECT ... FOR UPDATE``) so that two concurrent requests can never
 double-book the same slot.
 """
-from datetime import datetime
+from datetime import datetime, time, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -51,6 +51,8 @@ class AppointmentResponse(BaseModel):
 class ProviderBrief(BaseModel):
     full_name: str
     specialty: str
+    address: Optional[str] = None
+    fees: Optional[int] = None
 
 
 class SlotBrief(BaseModel):
@@ -147,16 +149,41 @@ def book_appointment(
                 detail="Slot is already booked",
             )
 
-        # New bookings start as "waiting" (Pending) until the doctor confirms.
-        appointment = Appointment(
-            patient_id=patient.id,
-            slot_id=slot.id,
-            service_id=payload.service_id,
-            status=AppointmentStatus.waiting,
+        # A slot whose start time has already passed can't be booked.
+        slot_start = slot.start_time
+        now = datetime.now(timezone.utc)
+        if slot_start.tzinfo is None:
+            now = now.replace(tzinfo=None)
+        if slot_start <= now:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This time slot has already passed",
+            )
+
+        # A slot freed by a previous cancellation still has that cancelled
+        # appointment row attached (appointments.slot_id is UNIQUE). Reuse it
+        # instead of inserting a new one, otherwise rebooking the slot would
+        # fail the unique constraint with a misleading 409.
+        appointment = (
+            db.query(Appointment)
+            .filter(Appointment.slot_id == slot.id)
+            .first()
         )
+        if appointment is not None:
+            appointment.patient_id = patient.id
+            appointment.service_id = payload.service_id
+            appointment.status = AppointmentStatus.waiting
+        else:
+            # New bookings start as "waiting" (Pending) until the doctor confirms.
+            appointment = Appointment(
+                patient_id=patient.id,
+                slot_id=slot.id,
+                service_id=payload.service_id,
+                status=AppointmentStatus.waiting,
+            )
+            db.add(appointment)
         slot.status = SlotStatus.booked
 
-        db.add(appointment)
         db.commit()
         db.refresh(appointment)
         return appointment
@@ -215,7 +242,12 @@ def my_appointments(
                 "created_at": appt.created_at,
                 "updated_at": appt.updated_at,
                 "provider": (
-                    {"full_name": provider.full_name, "specialty": provider.specialty}
+                    {
+                        "full_name": provider.full_name,
+                        "specialty": provider.specialty,
+                        "address": provider.address,
+                        "fees": provider.fees,
+                    }
                     if provider
                     else None
                 ),
@@ -517,7 +549,17 @@ def get_all_appointments_admin(
     if service_id is not None:
         q = q.filter(Appointment.service_id == service_id)
     if date is not None:
-        q = q.filter(Appointment.created_at == date)
+        # Filter by the appointment's scheduled calendar day (the slot's start
+        # time, which is what the response exposes as ``appointment_datetime``).
+        # Comparing against the full day range avoids the previous bug where an
+        # exact-equality match on ``created_at`` never matched.
+        day_start = datetime.combine(date.date(), time.min)
+        day_end = day_start + timedelta(days=1)
+        q = (
+            q.join(AppointmentSlot, AppointmentSlot.id == Appointment.slot_id)
+            .filter(AppointmentSlot.start_time >= day_start)
+            .filter(AppointmentSlot.start_time < day_end)
+        )
 
     total = q.count()
 

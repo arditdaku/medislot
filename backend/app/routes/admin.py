@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date as date_type, datetime, time, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -23,15 +23,18 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/queue", response_model=List[QueueAppointmentResponse])
 def get_queue(
     status: Optional[AppointmentStatus] = Query(None),
+    date: Optional[date_type] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"])),
 ):
-    """Return all appointments for today, ordered by slot start time.
+    """Return all appointments for a given day, ordered by slot start time.
 
-    Restricted to admins. Optional `status` query param filters by appointment status.
+    Restricted to admins. Defaults to today; pass `date` (YYYY-MM-DD) to view
+    another day's queue. Optional `status` query param filters by appointment
+    status.
     """
-    today = datetime.today().date()
-    start = datetime.combine(today, time.min)
+    target_day = date or datetime.today().date()
+    start = datetime.combine(target_day, time.min)
     end = start + timedelta(days=1)
 
     q = (
@@ -63,7 +66,7 @@ def get_queue(
         patient_age = None
         if patient is not None and getattr(patient, "dob", None) is not None:
             dob = patient.dob
-            today_date = today
+            today_date = datetime.today().date()
             patient_age = (
                 today_date.year
                 - dob.year
