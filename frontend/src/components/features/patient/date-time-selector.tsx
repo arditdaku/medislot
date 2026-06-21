@@ -55,23 +55,29 @@ export default function DateTimeSelector({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
+  // Captured once: slots whose start time is at/before this are in the past and
+  // can't be booked (their status is still "available" until acted on).
+  const [nowMs] = useState(() => Date.now());
+
+  const isPast = (slot: Slot) => new Date(slot.start_time).getTime() <= nowMs;
+  const isBookable = (slot: Slot) => slot.status === "available" && !isPast(slot);
 
   // Fetch ALL available slots for the provider once (no date filter), then
   // group them client-side. One request powers both the calendar and times.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    getSlots(providerId)
-      .then((result) => {
+    (async () => {
+      setLoading(true);
+      try {
         // Keep ALL statuses — booked/blocked are shown disabled, not hidden.
+        const result = await getSlots(providerId);
         if (!cancelled) setSlots(result);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setSlots([]);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -87,14 +93,16 @@ export default function DateTimeSelector({
     return map;
   }, [slots]);
 
-  // Days that have at least one available slot (drive the dot + enabled state).
+  // Days that have at least one bookable (available + not past) slot — drive the
+  // dot + enabled state.
   const availableDays = useMemo(() => {
     const set = new Set<string>();
     for (const [key, list] of byDay) {
-      if (list.some((s) => s.status === "available")) set.add(key);
+      if (list.some(isBookable)) set.add(key);
     }
     return set;
-  }, [byDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [byDay, nowMs]);
 
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
@@ -117,7 +125,8 @@ export default function DateTimeSelector({
 
   function renderSlot(slot: Slot) {
     const isSelected = slot.id === selectedSlot?.id;
-    const isDisabled = slot.status !== "available";
+    const past = isPast(slot);
+    const isDisabled = slot.status !== "available" || past;
 
     let style: string;
     if (isDisabled) {
@@ -136,7 +145,7 @@ export default function DateTimeSelector({
         type="button"
         disabled={isDisabled}
         aria-pressed={isSelected}
-        title={isDisabled ? "Already booked" : undefined}
+        title={past ? "This time has passed" : isDisabled ? "Already booked" : undefined}
         onClick={() => onSelectSlot(isSelected ? null : slot)}
         className={`min-h-10 rounded-full border px-4 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] ${style}`}
       >

@@ -31,9 +31,16 @@ type AppointmentView = {
   providerId: number | null;
   /** Slot start time as an ISO 8601 string. */
   startTime: string;
-  clinicName: string;
+  /** The doctor's clinic address (provider.address). */
+  location: string;
+  /** The doctor's consultation fee (provider.fees), or null if unset. */
+  fee: number | null;
   status: AppointmentStatus;
 };
+
+// Terminal statuses: a finished/closed appointment always belongs to "Past",
+// regardless of its scheduled time (e.g. a future visit that was cancelled).
+const DONE_STATUSES: AppointmentStatus[] = ["completed", "cancelled", "no_show"];
 
 // ─── Status filter pills ────────────────────────────────────────────
 // "Pending" maps to the backend `waiting` status (there is no `pending`).
@@ -101,9 +108,13 @@ function formatTime(iso: string): string {
  */
 function toView(appt: Appointment): AppointmentView | null {
   const raw = appt as Appointment & {
-    provider?: { full_name?: string; specialty?: string };
+    provider?: {
+      full_name?: string;
+      specialty?: string;
+      address?: string | null;
+      fees?: number | null;
+    };
     slot?: { provider_id?: number; start_time?: string };
-    clinic?: { name?: string };
   };
   if (!raw.provider?.full_name || !raw.slot?.start_time) return null;
   return {
@@ -112,7 +123,8 @@ function toView(appt: Appointment): AppointmentView | null {
     specialty: raw.provider.specialty ?? "—",
     providerId: raw.slot.provider_id ?? null,
     startTime: raw.slot.start_time,
-    clinicName: raw.clinic?.name ?? "—",
+    location: raw.provider.address ?? "—",
+    fee: raw.provider.fees ?? null,
     status: appt.status,
   };
 }
@@ -181,12 +193,18 @@ export default function MyAppointmentsPage() {
       const matchesStatus = !activeFilter.status || a.status === activeFilter.status;
       return matchesSearch && matchesStatus;
     });
+    // Upcoming = still active (not finished) AND scheduled in the future.
+    // Anything finished (completed/cancelled/no-show) — or whose time has
+    // already passed — falls into Past.
+    const isUpcoming = (a: AppointmentView) =>
+      !DONE_STATUSES.includes(a.status) &&
+      new Date(a.startTime).getTime() > now;
     return {
       upcoming: matches
-        .filter((a) => new Date(a.startTime).getTime() > now)
+        .filter(isUpcoming)
         .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
       past: matches
-        .filter((a) => new Date(a.startTime).getTime() <= now)
+        .filter((a) => !isUpcoming(a))
         .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
     };
   }, [appointments, search, activeFilter, now]);
@@ -428,7 +446,7 @@ function AppointmentItem({
             </span>
             <span className="inline-flex items-center gap-1.5">
               <PinIcon />
-              {appt.clinicName}
+              {appt.location}
             </span>
           </div>
         </div>
@@ -505,13 +523,15 @@ function DetailsDrawer({
           <dl className="mt-6 space-y-4">
             <DetailRow icon={<CalendarIcon />} label="Date" value={formatDate(appt.startTime)} />
             <DetailRow icon={<ClockIcon />} label="Time" value={formatTime(appt.startTime)} />
-            <DetailRow icon={<PinIcon />} label="Location" value={appt.clinicName} />
+            <DetailRow icon={<PinIcon />} label="Location" value={appt.location} />
           </dl>
 
           <div className="mt-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--color-text-muted)]">Consultation fee</span>
-              <span className="font-semibold text-[var(--color-text-primary)]">$50</span>
+              <span className="font-semibold text-[var(--color-text-primary)]">
+                {appt.fee != null ? `$${appt.fee}` : "—"}
+              </span>
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { getUser, getToken } from "@/lib/auth";
+import Select from "@/components/ui/select";
 
 type PatientProfile = {
   fullName: string;
@@ -51,10 +52,9 @@ export default function PatientProfilePage() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
   useEffect(() => {
-    const account = getUser() as { email?: string } | null;
-    if (account?.email) setEmail(account.email);
-
     const fetchPatientProfile = async () => {
+      const account = getUser() as { email?: string } | null;
+      if (account?.email) setEmail(account.email);
       try {
         const token = getToken();
         const response = await fetch(`${apiUrl}/patients/me`, {
@@ -344,23 +344,23 @@ export default function PatientProfilePage() {
               </div>
 
               <div>
-                <label className={labelClass} htmlFor="gender">
+                <span className={labelClass}>
                   <UserIcon size={15} /> Gender
-                </label>
-                <select
-                  id="gender"
+                </span>
+                <Select
+                  className="mt-2"
+                  ariaLabel="Gender"
+                  icon={<UserIcon size={15} />}
+                  placeholder="Select gender"
                   value={profile.gender}
-                  onChange={(event) =>
-                    updateField("gender", event.target.value)
-                  }
-                  className={inputClass}
-                >
-                  <option value="">Select gender</option>
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                  <option value="other">Other</option>
-                  <option value="prefer_not_to_say">Prefer not to say</option>
-                </select>
+                  onChange={(v) => updateField("gender", v)}
+                  options={[
+                    { value: "female", label: "Female" },
+                    { value: "male", label: "Male" },
+                    { value: "other", label: "Other" },
+                    { value: "prefer_not_to_say", label: "Prefer not to say" },
+                  ]}
+                />
                 {errors.gender && (
                   <p className="mt-1 text-sm text-danger">{errors.gender}</p>
                 )}
