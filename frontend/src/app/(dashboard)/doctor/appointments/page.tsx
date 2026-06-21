@@ -17,8 +17,11 @@ import {
   updateAppointmentStatus,
   type QueueAppointment,
 } from "@/lib/api/appointments";
+import { getVisitRecord } from "@/lib/api/doctor";
+import { useToast } from "@/hooks/use-toast";
 import type { AppointmentStatus } from "@/types/api";
 import StatusBadge from "@/components/shared/status-badge";
+import VisitNotesModal from "@/components/features/doctor/visit-notes-modal";
 
 // Mirrors the backend VALID_STATUS_TRANSITIONS map so we only offer actions the
 // server accepts. Same set the admin Queue uses.
@@ -80,12 +83,20 @@ export default function DoctorAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [hasExistingNotes, setHasExistingNotes] = useState<Record<string, boolean>>({});
+  const toast = useToast();
 
   useEffect(() => {
     let cancelled = false;
     getDoctorAppointments()
       .then((data) => {
-        if (!cancelled) setAppointments(data);
+        if (!cancelled) {
+          setAppointments(data);
+          // Check which appointments have existing notes
+          checkExistingNotes(data);
+        }
       })
       .catch(() => {
         if (!cancelled) setError("Could not load appointments.");
@@ -98,17 +109,59 @@ export default function DoctorAppointmentsPage() {
     };
   }, []);
 
+  async function checkExistingNotes(appts: QueueAppointment[]) {
+    const completedAppts = appts.filter(a => a.status === "completed");
+    const notesStatus: Record<string, boolean> = {};
+    
+    await Promise.all(
+      completedAppts.map(async (appt) => {
+        try {
+          await getVisitRecord(appt.appointment_id);
+          notesStatus[appt.appointment_id] = true;
+        } catch {
+          notesStatus[appt.appointment_id] = false;
+        }
+      })
+    );
+    
+    setHasExistingNotes(notesStatus);
+  }
+
   async function changeStatus(id: string, status: AppointmentStatus) {
     setPendingId(id);
     setError("");
     try {
       await updateAppointmentStatus(id, status);
-      setAppointments(await getDoctorAppointments());
+      const refreshed = await getDoctorAppointments();
+      setAppointments(refreshed);
+      checkExistingNotes(refreshed);
+      
+      if (status === "completed") {
+        toast.success("Appointment marked as completed");
+      } else if (status === "cancelled") {
+        toast.success("Appointment cancelled successfully");
+      }
     } catch {
+      toast.error("Could not update the appointment.");
       setError("Could not update the appointment.");
     } finally {
       setPendingId(null);
     }
+  }
+
+  function handleAddNotes(appointmentId: string) {
+    setSelectedAppointmentId(appointmentId);
+    setModalOpen(true);
+  }
+
+  function handleCloseModal() {
+    setModalOpen(false);
+    setSelectedAppointmentId(null);
+    // Refresh appointments to update notes status
+    getDoctorAppointments().then((data) => {
+      setAppointments(data);
+      checkExistingNotes(data);
+    });
   }
 
   const { upcoming, ongoing, past } = useMemo(() => {
@@ -133,6 +186,8 @@ export default function DoctorAppointmentsPage() {
     return items.map((appt, idx) => {
       const actions = ACTIONS[appt.status] ?? [];
       const isPending = pendingId === appt.appointment_id;
+      const hasNotes = hasExistingNotes[appt.appointment_id];
+      
       return (
         <tr
           key={appt.appointment_id}
@@ -162,6 +217,15 @@ export default function DoctorAppointmentsPage() {
           <td className="px-6 py-4">
             <div className="flex items-center gap-3">
               <StatusBadge status={appt.status} />
+              {appt.status === "completed" && (
+                <button
+                  type="button"
+                  onClick={() => handleAddNotes(appt.appointment_id)}
+                  className="ml-2 rounded-lg border border-border px-3 py-1 text-xs font-medium text-primary hover:bg-bg-muted"
+                >
+                  {hasNotes ? "View Notes" : "Add Notes"}
+                </button>
+              )}
               {actions.length > 0 && (
                 <div className="flex items-center gap-2">
                   {actions.map((a) => (
@@ -279,6 +343,15 @@ export default function DoctorAppointmentsPage() {
             emptyText: "No past appointments yet.",
           })}
         </>
+      )}
+
+      {selectedAppointmentId && (
+        <VisitNotesModal
+          isOpen={modalOpen}
+          onClose={handleCloseModal}
+          appointmentId={selectedAppointmentId}
+          isReadOnly={hasExistingNotes[selectedAppointmentId] || false}
+        />
       )}
     </div>
   );
