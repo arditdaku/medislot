@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { getDoctorAppointments, updateAppointmentStatus, type QueueAppointment } from "@/lib/api/appointments";
+import { useToast } from "@/hooks/use-toast";
 
 export default function DoctorAppointmentsPage() {
   const [appointments, setAppointments] = useState<QueueAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -26,8 +28,16 @@ export default function DoctorAppointmentsPage() {
       await updateAppointmentStatus(id, status);
       const refreshed = await getDoctorAppointments();
       setAppointments(refreshed);
-    } catch {
-      // optionally show error toast
+      
+      if (status === "completed") {
+        toast.success("Appointment marked as completed");
+      } else if (status === "cancelled") {
+        toast.success("Appointment cancelled successfully");
+      }
+    } catch (error) {
+      // Shfaq toast error
+      toast.error("Failed to update appointment status");
+      console.error(error);
     }
   }
 

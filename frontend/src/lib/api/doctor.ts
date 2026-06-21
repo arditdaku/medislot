@@ -41,3 +41,14 @@ export async function getDoctorStats(): Promise<DoctorStats> {
   const { data } = await apiClient.get<DoctorStats>("/doctor/stats");
   return data;
 }
+
+/** PATCH /appointments/{id}/status — update appointment status (confirm/cancel/complete). */
+export async function updateAppointmentStatus(
+  appointmentId: string,
+  status: AppointmentStatus
+): Promise<any> {
+  const { data } = await apiClient.patch(`/appointments/${appointmentId}/status`, {
+    status,
+  });
+  return data;
+}
