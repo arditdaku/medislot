@@ -3,12 +3,21 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.schemas.provider import DoctorCreate, ProviderResponse, ProviderUpdate
 from app.db.session import get_db
+from app.models.appointment import Appointment
 from app.models.provider import Provider
+from app.models.slot import AppointmentSlot
 from app.models.user import User
 from app.routes.auth import require_role
 from app.core.security import hash_password
 
 router = APIRouter(prefix="/providers", tags=["providers"])
+
+# Default Mon–Fri 09:00–17:00 schedule applied when an admin creates a doctor
+# without specifying working hours, so slot generation works out of the box.
+DEFAULT_WORKING_HOURS = {
+    day: {"start": "09:00", "end": "17:00"}
+    for day in ("monday", "tuesday", "wednesday", "thursday", "friday")
+}
 
 
 @router.get("", response_model=list[ProviderResponse])
@@ -65,7 +74,7 @@ def create_doctor(
         provider = Provider(
             user_id=user.id,
             specialty=doctor_in.specialty,
-            working_hours=doctor_in.working_hours,
+            working_hours=doctor_in.working_hours or DEFAULT_WORKING_HOURS,
             experience=doctor_in.experience,
             fees=doctor_in.fees,
             address=doctor_in.address,
@@ -117,12 +126,18 @@ def update_provider(
     return provider
 
 
-@router.patch("/{provider_id}/deactivate", response_model=ProviderResponse)
-def deactivate_provider(
+@router.delete("/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_provider(
     provider_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"])),
 ):
+    """Admin-only: permanently delete a doctor (provider + login account).
+
+    Blocked (409) if the doctor has any appointments, so patient history and
+    medical records are never destroyed. Their unbooked slots are removed along
+    with the account.
+    """
     provider = db.query(Provider).filter(Provider.id == provider_id).first()
     if provider is None:
         raise HTTPException(
@@ -133,10 +148,32 @@ def deactivate_provider(
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can deactivate providers",
+            detail="Only admins can delete providers",
         )
 
-    provider.is_active = not provider.is_active
+    appointment_count = (
+        db.query(Appointment)
+        .join(AppointmentSlot, AppointmentSlot.id == Appointment.slot_id)
+        .filter(AppointmentSlot.provider_id == provider.id)
+        .count()
+    )
+    if appointment_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Cannot delete a doctor with {appointment_count} appointment(s) "
+                "on record. Their history must be preserved."
+            ),
+        )
+
+    user = db.query(User).filter(User.id == provider.user_id).first()
+    # No appointments exist, so every slot is unbooked and safe to remove.
+    db.query(AppointmentSlot).filter(
+        AppointmentSlot.provider_id == provider.id
+    ).delete(synchronize_session=False)
+    db.delete(provider)
+    db.flush()
+    if user is not None:
+        db.delete(user)
     db.commit()
-    db.refresh(provider)
-    return provider
+    return None
