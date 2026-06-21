@@ -52,3 +52,38 @@ export async function updateAppointmentStatus(
   });
   return data;
 }
+
+
+// Visit Records API
+export interface VisitRecordCreate {
+  appointment_id: string;
+  notes: string;
+}
+
+export interface VisitRecordResponse {
+  id: string;
+  appointment_id: string;
+  doctor_id: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createVisitRecord(
+  payload: VisitRecordCreate,
+): Promise<VisitRecordResponse> {
+  const { data } = await apiClient.post<VisitRecordResponse>(
+    "/visit-records",
+    payload,
+  );
+  return data;
+}
+
+export async function getVisitRecord(
+  appointmentId: string,
+): Promise<VisitRecordResponse> {
+  const { data } = await apiClient.get<VisitRecordResponse>(
+    `/visit-records/${appointmentId}`,
+  );
+  return data;
+}

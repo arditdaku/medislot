@@ -2,18 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { getDoctorAppointments, updateAppointmentStatus, type QueueAppointment } from "@/lib/api/appointments";
+import { getVisitRecord } from "@/lib/api/doctor";
 import { useToast } from "@/hooks/use-toast";
+import VisitNotesModal from "@/components/features/doctor/visit-notes-modal";
 
 export default function DoctorAppointmentsPage() {
   const [appointments, setAppointments] = useState<QueueAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [hasExistingNotes, setHasExistingNotes] = useState<Record<string, boolean>>({});
   const toast = useToast();
 
   useEffect(() => {
     let cancelled = false;
     getDoctorAppointments()
       .then((data) => {
-        if (!cancelled) setAppointments(data);
+        if (!cancelled) {
+          setAppointments(data);
+          // Check which appointments have existing notes
+          checkExistingNotes(data);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -22,6 +31,24 @@ export default function DoctorAppointmentsPage() {
       cancelled = true;
     };
   }, []);
+
+  async function checkExistingNotes(appts: QueueAppointment[]) {
+    const completedAppts = appts.filter(a => a.status === "completed");
+    const notesStatus: Record<string, boolean> = {};
+    
+    await Promise.all(
+      completedAppts.map(async (appt) => {
+        try {
+          await getVisitRecord(appt.appointment_id);
+          notesStatus[appt.appointment_id] = true;
+        } catch {
+          notesStatus[appt.appointment_id] = false;
+        }
+      })
+    );
+    
+    setHasExistingNotes(notesStatus);
+  }
 
   async function handleStatusUpdate(id: string, status: "completed" | "cancelled") {
     try {
@@ -35,10 +62,21 @@ export default function DoctorAppointmentsPage() {
         toast.success("Appointment cancelled successfully");
       }
     } catch (error) {
-      // Shfaq toast error
       toast.error("Failed to update appointment status");
       console.error(error);
     }
+  }
+
+  function handleAddNotes(appointmentId: string) {
+    setSelectedAppointmentId(appointmentId);
+    setModalOpen(true);
+  }
+
+  function handleCloseModal() {
+    setModalOpen(false);
+    setSelectedAppointmentId(null);
+    // Refresh appointments to update status
+    getDoctorAppointments().then(setAppointments);
   }
 
   function formatDateTime(iso: string) {
@@ -126,7 +164,16 @@ export default function DoctorAppointmentsPage() {
                   </td>
                   <td className="px-6 py-4">
                     {appt.status === "completed" ? (
-                      <span className="font-semibold text-[var(--color-success)]">Completed</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[var(--color-success)]">Completed</span>
+                        <button
+                          type="button"
+                          onClick={() => handleAddNotes(appt.appointment_id)}
+                          className="ml-2 rounded-lg border border-[var(--color-border)] px-3 py-1 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-bg-muted)]"
+                        >
+                          {hasExistingNotes[appt.appointment_id] ? "View Notes" : "Add Notes"}
+                        </button>
+                      </div>
                     ) : appt.status === "cancelled" ? (
                       <span className="font-semibold text-[var(--color-danger)]">Cancelled</span>
                     ) : (
@@ -156,6 +203,15 @@ export default function DoctorAppointmentsPage() {
           </tbody>
         </table>
       </div>
+
+      {selectedAppointmentId && (
+        <VisitNotesModal
+          isOpen={modalOpen}
+          onClose={handleCloseModal}
+          appointmentId={selectedAppointmentId}
+          isReadOnly={hasExistingNotes[selectedAppointmentId] || false}
+        />
+      )}
     </div>
   );
 }
