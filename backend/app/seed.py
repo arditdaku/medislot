@@ -23,11 +23,24 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.core.security import hash_password
+from app.models.service import Service
 from app.models.user import User
 
 ADMIN_FULL_NAME = "Admin"
 ADMIN_EMAIL = "admin@gmail.com"
 ADMIN_PASSWORD = "admin12345"
+
+# Baseline services every environment should have. `department` is what links a
+# doctor's specialty to the patient booking flow, so each service introduces a
+# bookable department. Seeded alongside the admin and never auto-deleted.
+DEFAULT_SERVICES = [
+    {"name": "General Consultation", "duration_minutes": 30, "department": "General Medicine"},
+    {"name": "Cardiology Consultation", "duration_minutes": 30, "department": "Cardiology"},
+    {"name": "Dermatology Consultation", "duration_minutes": 30, "department": "Dermatology"},
+    {"name": "Neurology Consultation", "duration_minutes": 45, "department": "Neurology"},
+    {"name": "Pediatrics Consultation", "duration_minutes": 30, "department": "Pediatrics"},
+    {"name": "Dental Check-up", "duration_minutes": 30, "department": "Dentistry"},
+]
 
 
 def seed_admin(db: Session) -> None:
@@ -50,10 +63,25 @@ def seed_admin(db: Session) -> None:
     print(f"Created admin: {ADMIN_EMAIL} / {ADMIN_PASSWORD} (id={admin.id})")
 
 
+def seed_services(db: Session) -> None:
+    """Create the baseline services if they don't already exist (idempotent)."""
+    created = 0
+    for spec in DEFAULT_SERVICES:
+        exists = db.query(Service).filter(Service.name == spec["name"]).first()
+        if exists:
+            continue
+        db.add(Service(**spec))
+        created += 1
+    db.commit()
+    total = db.query(Service).count()
+    print(f"Seeded {created} new service(s); {total} total.")
+
+
 def main() -> None:
     db = SessionLocal()
     try:
         seed_admin(db)
+        seed_services(db)
     finally:
         db.close()
 
