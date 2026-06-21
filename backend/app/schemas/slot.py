@@ -11,6 +11,18 @@ class SlotGenerate(BaseModel):
     slot_duration_minutes: int = 30
 
 
+class SlotGenerateRange(BaseModel):
+    """Generate slots across an inclusive date range (e.g. Mon–Fri).
+
+    Days the provider does not work are skipped automatically.
+    """
+
+    provider_id: int
+    start_date: date
+    end_date: date
+    slot_duration_minutes: int = 30
+
+
 class SlotResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
