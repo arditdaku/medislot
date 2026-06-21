@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,8 +21,11 @@ export default function LoginForm() {
     password: "",
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Clear the error as soon as the user edits a field.
+    setError(null);
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
@@ -31,6 +34,7 @@ export default function LoginForm() {
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     try {
       setLoading(true);
       const response = await fetch("http://localhost:8000/auth/login", {
@@ -43,8 +47,13 @@ export default function LoginForm() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Invalid email or password");
+        // Industry-standard wording: never reveal which field was wrong.
+        setError(
+          response.status === 401
+            ? "Your email or password is incorrect."
+            : "Something went wrong. Please try again."
+        );
+        return;
       }
 
       const data = await response.json();
@@ -52,11 +61,8 @@ export default function LoginForm() {
       toast.success("Logged in successfully");
       const dashboard = roleDashboardMap[data.role] ?? "/login";
       router.push(dashboard);
-
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Something went wrong"
-      );
+    } catch {
+      setError("Couldn't reach the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -109,7 +115,10 @@ export default function LoginForm() {
               onChange={handleChange}
               placeholder="you@clinic.com"
               required
-              className="h-10 w-full rounded-lg border border-border bg-bg-primary px-3 text-xs text-text-primary outline-none transition focus:border-primary"
+              aria-invalid={error ? true : undefined}
+              className={`h-10 w-full rounded-lg border bg-bg-primary px-3 text-xs text-text-primary outline-none transition focus:border-primary ${
+                error ? "border-danger" : "border-border"
+              }`}
             />
           </div>
 
@@ -133,8 +142,20 @@ export default function LoginForm() {
               onChange={handleChange}
               placeholder="••••••••"
               required
-              className="h-10 w-full rounded-lg border border-border bg-bg-primary px-3 text-xs text-text-primary outline-none transition focus:border-primary"
+              aria-invalid={error ? true : undefined}
+              className={`h-10 w-full rounded-lg border bg-bg-primary px-3 text-xs text-text-primary outline-none transition focus:border-primary ${
+                error ? "border-danger" : "border-border"
+              }`}
             />
+            {error && (
+              <p
+                role="alert"
+                className="mt-2 flex items-center gap-1.5 text-xs font-medium text-danger"
+              >
+                <AlertCircle size={13} className="flex-none" />
+                {error}
+              </p>
+            )}
           </div>
 
           {/* Submit */}
