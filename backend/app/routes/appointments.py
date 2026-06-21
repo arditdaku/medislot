@@ -398,7 +398,14 @@ class AppointmentStatusUpdate(BaseModel):
 
 VALID_STATUS_TRANSITIONS = {
     AppointmentStatus.waiting: {
+        AppointmentStatus.confirmed,
         AppointmentStatus.in_progress,
+        AppointmentStatus.cancelled,
+        AppointmentStatus.no_show,
+    },
+    AppointmentStatus.confirmed: {
+        AppointmentStatus.in_progress,
+        AppointmentStatus.completed,
         AppointmentStatus.cancelled,
         AppointmentStatus.no_show,
     },
@@ -411,7 +418,6 @@ VALID_STATUS_TRANSITIONS = {
     AppointmentStatus.no_show: set(),
     AppointmentStatus.cancelled: set(),
 }
-
 
 @router.patch("/{appointment_id}/status", response_model=AppointmentResponse)
 def update_appointment_status(

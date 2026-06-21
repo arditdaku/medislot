@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated, getRole } from "@/lib/auth";
+import { ToastProvider } from "@/components/ui/toast-provider";
 
 export default function DoctorLayout({
   children,
@@ -26,5 +27,10 @@ export default function DoctorLayout({
   if (!mounted) return null;
   if (!isAuthenticated() || getRole() !== "doctor") return null;
 
-  return <>{children}</>;
+  return (
+    <>
+      <ToastProvider />
+      {children}
+    </>
+  );
 }
