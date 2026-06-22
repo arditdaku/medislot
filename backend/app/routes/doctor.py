@@ -6,6 +6,7 @@ Currently exposes the logged-in doctor's daily slot schedule, which the admin
 from datetime import date as date_type, datetime, time, timedelta, timezone
 from http.client import HTTPException
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
@@ -18,10 +19,11 @@ from app.models.provider import Provider
 from app.models.service import Service
 from app.models.slot import AppointmentSlot, SlotStatus
 from app.models.user import User
+from app.models.visit_record import VisitRecord
 from app.routes.auth import require_role
 from app.schemas.slot import ScheduleSlotResponse
 from app.schemas.doctor import QueueAppointmentResponse
-from app.schemas.doctor import DoctorStatsResponse
+from app.schemas.doctor import DoctorStatsResponse, DoctorVisitResponse
 
 
 
@@ -284,6 +286,53 @@ def get_stats(
         "patients_count": int(patients_count),
     }
 
+@router.get("/visits", response_model=List[DoctorVisitResponse])
+def get_visits(
+    search: Optional[str] = Query(None, description="Filter by patient name"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["doctor"])),
+):
+    """Return all visit records for the authenticated doctor, newest first.
+
+    Each row is enriched with the patient's name, the appointment slot time,
+    and the booked service. Optional ``search`` filters by patient name.
+    """
+    provider = (
+        db.query(Provider)
+        .filter(Provider.user_id == current_user.id)
+        .first()
+    )
+    if provider is None:
+        return []
+
+    q = (
+        db.query(VisitRecord, Patient, Service, AppointmentSlot)
+        .join(Appointment, VisitRecord.appointment_id == Appointment.id)
+        .join(AppointmentSlot, Appointment.slot_id == AppointmentSlot.id)
+        .join(Patient, Appointment.patient_id == Patient.id)
+        .join(Service, Appointment.service_id == Service.id)
+        .filter(AppointmentSlot.provider_id == provider.id)
+    )
+
+    if search:
+        q = q.filter(Patient.full_name.ilike(f"%{search.strip()}%"))
+
+    q = q.order_by(AppointmentSlot.start_time.desc())
+
+    rows = q.all()
+    return [
+        DoctorVisitResponse(
+            id=record.id,
+            appointment_id=record.appointment_id,
+            patient_name=patient.full_name if patient else None,
+            service_name=service.name if service else None,
+            appointment_date=slot.start_time,
+            notes=record.notes,
+            ai_summary=record.ai_summary,
+            created_at=record.created_at,
+        )
+        for record, patient, service, slot in rows
+    ]
 
 class ProviderUpdateRequest(BaseModel):
     about: Optional[str] = None
@@ -346,3 +395,16 @@ def update_my_profile(
     db.commit()
     db.refresh(provider)
     return provider
+
+class DoctorVisitResponse(BaseModel):
+    id: UUID
+    appointment_id: UUID
+    patient_name: Optional[str] = None
+    service_name: Optional[str] = None
+    appointment_date: datetime
+    notes: str
+    ai_summary: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
