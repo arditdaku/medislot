@@ -87,3 +87,42 @@ export async function getVisitRecord(
   );
   return data;
 }
+
+// Provider Profile API
+export interface ProviderProfile {
+  id: number;
+  user_id: number;
+  specialty: string;
+  working_hours: Record<string, any> | null;
+  experience: string | null;
+  fees: number | null;
+  address: string | null;
+  about: string | null;
+  is_active: boolean;
+  full_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProviderUpdatePayload {
+  about?: string | null;
+  fees?: number | null;
+  address?: string | null;
+  working_hours?: Record<string, any> | null;
+  is_active?: boolean;
+}
+
+export async function getMyProvider(): Promise<ProviderProfile> {
+  const { data } = await apiClient.get<ProviderProfile>("/doctor/profile");
+  return data;
+}
+
+export async function updateMyProvider(
+  payload: ProviderUpdatePayload,
+): Promise<ProviderProfile> {
+  const { data } = await apiClient.patch<ProviderProfile>(
+    "/doctor/profile",
+    payload,
+  );
+  return data;
+}

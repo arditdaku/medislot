@@ -4,6 +4,7 @@ Currently exposes the logged-in doctor's daily slot schedule, which the admin
 "All Appointments" view (SCRUM-106) and the doctor dashboard build on.
 """
 from datetime import date as date_type, datetime, time, timedelta, timezone
+from http.client import HTTPException
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -21,6 +22,12 @@ from app.routes.auth import require_role
 from app.schemas.slot import ScheduleSlotResponse
 from app.schemas.doctor import QueueAppointmentResponse
 from app.schemas.doctor import DoctorStatsResponse
+
+
+
+from pydantic import BaseModel
+from typing import Optional, List
+from app.schemas.doctor import ProviderProfileResponse
 
 router = APIRouter(prefix="/doctor", tags=["doctor"])
 
@@ -276,3 +283,66 @@ def get_stats(
         "appointments_count": int(appointments_count),
         "patients_count": int(patients_count),
     }
+
+
+class ProviderUpdateRequest(BaseModel):
+    about: Optional[str] = None
+    fees: Optional[int] = None
+    address: Optional[str] = None
+    working_hours: Optional[dict] = None
+    is_active: Optional[bool] = None
+
+
+@router.get("/profile", response_model=ProviderProfileResponse)
+def get_my_profile(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["doctor"])),
+):
+    """Return the authenticated doctor's profile."""
+    provider = (
+        db.query(Provider)
+        .options(joinedload(Provider.user))
+        .filter(Provider.user_id == current_user.id)
+        .first()
+    )
+    if provider is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Provider profile not found",
+        )
+    return provider
+
+
+@router.patch("/profile", response_model=ProviderProfileResponse)
+def update_my_profile(
+    payload: ProviderUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["doctor"])),
+):
+    """Update the authenticated doctor's profile."""
+    provider = (
+        db.query(Provider)
+        .filter(Provider.user_id == current_user.id)
+        .first()
+    )
+    if provider is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Provider profile not found",
+        )
+
+    if payload.about is not None:
+        provider.about = payload.about
+    if payload.fees is not None:
+        provider.fees = payload.fees
+    if payload.address is not None:
+        provider.address = payload.address
+    if payload.working_hours is not None:
+        provider.working_hours = payload.working_hours
+    if payload.is_active is not None:
+        provider.is_active = payload.is_active
+
+    provider.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(provider)
+    return provider
