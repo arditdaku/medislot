@@ -32,6 +32,24 @@ MAX_RANGE_DAYS = 31
 DEFAULT_DAY_HOURS = {"start": "09:00", "end": "17:00"}
 
 
+def _provider_has_slots_on(
+    db: Session, provider_id: int, target_date: date
+) -> bool:
+    """True if the provider already has at least one slot on ``target_date``."""
+    day_start = datetime.combine(target_date, time.min)
+    day_end = datetime.combine(target_date, time.max)
+    return (
+        db.query(AppointmentSlot.id)
+        .filter(
+            AppointmentSlot.provider_id == provider_id,
+            AppointmentSlot.start_time >= day_start,
+            AppointmentSlot.start_time <= day_end,
+        )
+        .first()
+        is not None
+    )
+
+
 def _build_day_slots(
     db: Session,
     provider: Provider,
@@ -42,9 +60,18 @@ def _build_day_slots(
 
     Uses the provider's configured hours for that weekday when present, falling
     back to ``DEFAULT_DAY_HOURS`` otherwise — no day (including weekends) is
-    skipped. Slots that already exist are skipped, so it is safe to call
-    repeatedly. The caller is responsible for committing the transaction.
+    skipped.
+
+    If the provider already has *any* slot on ``target_date`` the day is left
+    untouched and an empty list is returned (SCRUM-120). A second generate —
+    e.g. after changing the slot duration — must not stack a new, overlapping
+    set of slots on top of the existing schedule; the day's slots have to be
+    cleared first to regenerate it with a different duration. The caller is
+    responsible for committing the transaction.
     """
+    if _provider_has_slots_on(db, provider.id, target_date):
+        return []
+
     working_hours = provider.working_hours or {}
     day_name = _DAYS[target_date.weekday()]
     day_schedule = working_hours.get(day_name) or DEFAULT_DAY_HOURS
@@ -58,25 +85,15 @@ def _build_day_slots(
     created: List[AppointmentSlot] = []
     while current_time + slot_duration <= end_time:
         slot_end = current_time + slot_duration
-        existing_slot = (
-            db.query(AppointmentSlot)
-            .filter(
-                AppointmentSlot.provider_id == provider.id,
-                AppointmentSlot.start_time == current_time,
-                AppointmentSlot.end_time == slot_end,
-            )
-            .first()
+        new_slot = AppointmentSlot(
+            provider_id=provider.id,
+            start_time=current_time,
+            end_time=slot_end,
+            status=SlotStatus.available,
         )
-        if not existing_slot:
-            new_slot = AppointmentSlot(
-                provider_id=provider.id,
-                start_time=current_time,
-                end_time=slot_end,
-                status=SlotStatus.available,
-            )
-            db.add(new_slot)
-            db.flush()
-            created.append(new_slot)
+        db.add(new_slot)
+        db.flush()
+        created.append(new_slot)
         current_time = slot_end
 
     return created
@@ -167,7 +184,8 @@ def generate_slots_range(
     Every day in the range gets slots (weekends included) — the admin controls
     which days a doctor works by choosing the range, e.g. Tue→Sun or Mon→Fri.
     Each day uses the provider's configured hours when set, otherwise the
-    default window. Existing slots are left untouched.
+    default window. Any day that already has slots is left untouched, so a
+    repeat generate never creates duplicate or overlapping slots (SCRUM-120).
     """
     if request.end_date < request.start_date:
         raise HTTPException(
