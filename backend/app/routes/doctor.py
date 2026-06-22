@@ -4,11 +4,10 @@ Currently exposes the logged-in doctor's daily slot schedule, which the admin
 "All Appointments" view (SCRUM-106) and the doctor dashboard build on.
 """
 from datetime import date as date_type, datetime, time, timedelta, timezone
-from http.client import HTTPException
 from typing import List, Optional
-from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import case, func
 
@@ -22,14 +21,12 @@ from app.models.user import User
 from app.models.visit_record import VisitRecord
 from app.routes.auth import require_role
 from app.schemas.slot import ScheduleSlotResponse
-from app.schemas.doctor import QueueAppointmentResponse
-from app.schemas.doctor import DoctorStatsResponse, DoctorVisitResponse
-
-
-
-from pydantic import BaseModel
-from typing import Optional, List
-from app.schemas.doctor import ProviderProfileResponse
+from app.schemas.doctor import (
+    QueueAppointmentResponse,
+    DoctorStatsResponse,
+    DoctorVisitResponse,
+    ProviderProfileResponse,
+)
 
 router = APIRouter(prefix="/doctor", tags=["doctor"])
 
@@ -396,16 +393,3 @@ def update_my_profile(
     db.commit()
     db.refresh(provider)
     return provider
-
-class DoctorVisitResponse(BaseModel):
-    id: UUID
-    appointment_id: UUID
-    patient_name: Optional[str] = None
-    service_name: Optional[str] = None
-    appointment_date: datetime
-    notes: str
-    ai_summary: Optional[str] = None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
