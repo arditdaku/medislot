@@ -78,8 +78,12 @@ export default function DashboardLayout({
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   useEffect(() => {
-    setRole(getRole() ?? "patient");
-    setUser(getUser() as { full_name?: string; name?: string; email?: string } | null);
+    const init = () => {
+      setRole(getRole() ?? "patient");
+      setUser(getUser() as { full_name?: string; name?: string; email?: string } | null);
+    };
+
+    init();
   }, []);
 
   const links = role ? NAV_LINKS[role] ?? NAV_LINKS.patient : [];

@@ -16,7 +16,7 @@ import {
   Search,
   Stethoscope,
   User,
-  Video,
+  
 } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { getPatientDashboard, clearRecentActivity } from "@/lib/api/dashboard";
@@ -83,8 +83,14 @@ function relativeTime(iso: string): string {
 }
 
 export default function PatientDashboardPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [name] = useState(() => {
+    const user = getUser() as { full_name?: string; name?: string; email?: string } | null;
+    return user?.full_name ?? user?.name ?? "";
+  });
+  const [email] = useState(() => {
+    const user = getUser() as { full_name?: string; name?: string; email?: string } | null;
+    return user?.email ?? "";
+  });
   const [data, setData] = useState<PatientDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
@@ -101,11 +107,7 @@ export default function PatientDashboardPage() {
     }
   }
 
-  useEffect(() => {
-    const user = getUser() as { full_name?: string; name?: string; email?: string } | null;
-    setName(user?.full_name ?? user?.name ?? "");
-    setEmail(user?.email ?? "");
-  }, []);
+  // name/email initialized from auth sync function to avoid effect-setState lint rule
 
   useEffect(() => {
     let cancelled = false;

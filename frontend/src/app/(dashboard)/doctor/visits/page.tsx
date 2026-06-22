@@ -49,19 +49,22 @@ export default function DoctorVisitsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
 
-    getDoctorVisits(search.trim() || undefined)
-      .then((data) => {
+    async function load() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const data = await getDoctorVisits(search.trim() || undefined);
         if (!cancelled) setVisits(data);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setError("Could not load visit records.");
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    }
+
+    load();
 
     return () => {
       cancelled = true;
