@@ -314,8 +314,9 @@ def get_visits(
         .filter(AppointmentSlot.provider_id == provider.id)
     )
 
-    if search:
-        q = q.filter(Patient.full_name.ilike(f"%{search.strip()}%"))
+    search_term = search.strip() if isinstance(search, str) and search.strip() else None
+    if search_term:
+        q = q.filter(Patient.full_name.ilike(f"%{search_term}%"))
 
     q = q.order_by(AppointmentSlot.start_time.desc())
 
