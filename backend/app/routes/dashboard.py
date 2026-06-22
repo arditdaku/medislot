@@ -24,7 +24,7 @@ def _appt_view(appt: Appointment) -> dict:
         "specialty": provider.specialty if provider else "—",
         "start_time": slot.start_time if slot else None,
         "status": appt.status,
-        "clinic": None,
+        "clinic": provider.address if provider else None,
     }
 
 

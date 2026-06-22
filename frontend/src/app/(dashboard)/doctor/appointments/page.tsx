@@ -11,6 +11,8 @@ import {
   CalendarClock,
   Activity,
   History,
+  Pill,
+  FileText,
 } from "lucide-react";
 import {
   getDoctorAppointments,
@@ -22,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { AppointmentStatus } from "@/types/api";
 import StatusBadge from "@/components/shared/status-badge";
 import VisitNotesModal from "@/components/features/doctor/visit-notes-modal";
+import PrescriptionModal from "@/components/features/doctor/prescription-modal";
 
 // Mirrors the backend VALID_STATUS_TRANSITIONS map so we only offer actions the
 // server accepts. Same set the admin Queue uses.
@@ -86,6 +89,10 @@ export default function DoctorAppointmentsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [hasExistingNotes, setHasExistingNotes] = useState<Record<string, boolean>>({});
+  const [prescribeFor, setPrescribeFor] = useState<{
+    id: string;
+    name: string | null;
+  } | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -164,6 +171,10 @@ export default function DoctorAppointmentsPage() {
     });
   }
 
+  function handlePrescribe(appointmentId: string, patientName: string | null) {
+    setPrescribeFor({ id: appointmentId, name: patientName });
+  }
+
   const { upcoming, ongoing, past } = useMemo(() => {
     const byTimeAsc = (a: QueueAppointment, b: QueueAppointment) =>
       a.start_time.localeCompare(b.start_time);
@@ -221,9 +232,22 @@ export default function DoctorAppointmentsPage() {
                 <button
                   type="button"
                   onClick={() => handleAddNotes(appt.appointment_id)}
-                  className="ml-2 rounded-lg border border-border px-3 py-1 text-xs font-medium text-primary hover:bg-bg-muted"
+                  className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-primary hover:bg-bg-muted"
                 >
+                  <FileText size={13} />
                   {hasNotes ? "View Notes" : "Add Notes"}
+                </button>
+              )}
+              {appt.status === "completed" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handlePrescribe(appt.appointment_id, appt.patient_name)
+                  }
+                  className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-primary hover:bg-bg-muted"
+                >
+                  <Pill size={13} />
+                  Prescription
                 </button>
               )}
               {actions.length > 0 && (
@@ -351,6 +375,15 @@ export default function DoctorAppointmentsPage() {
           onClose={handleCloseModal}
           appointmentId={selectedAppointmentId}
           isReadOnly={hasExistingNotes[selectedAppointmentId] || false}
+        />
+      )}
+
+      {prescribeFor && (
+        <PrescriptionModal
+          appointmentId={prescribeFor.id}
+          patientName={prescribeFor.name}
+          onClose={() => setPrescribeFor(null)}
+          onSaved={() => toast.success("Prescription saved successfully")}
         />
       )}
     </div>

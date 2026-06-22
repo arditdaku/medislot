@@ -35,6 +35,7 @@ const NAV_LINKS: Record<string, NavLink[]> = {
   doctor: [
   { label: "Dashboard", href: "/doctor", icon: LayoutDashboard },
   { label: "Appointments", href: "/doctor/appointments", icon: Calendar },
+  { label: "Schedule", href: "/doctor/schedule", icon: Clock },
   { label: "Visits", href: "/doctor/visits", icon: ClipboardList },
   { label: "Profile", href: "/doctor/profile", icon: User },
 ],
