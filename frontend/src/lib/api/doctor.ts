@@ -46,7 +46,7 @@ export async function getDoctorStats(): Promise<DoctorStats> {
 export async function updateAppointmentStatus(
   appointmentId: string,
   status: AppointmentStatus
-): Promise<any> {
+): Promise<unknown> {
   const { data } = await apiClient.patch(`/appointments/${appointmentId}/status`, {
     status,
   });
@@ -88,12 +88,52 @@ export async function getVisitRecord(
   return data;
 }
 
+// Prescriptions API
+export interface PrescriptionCreate {
+  appointment_id: string;
+  medication: string;
+  dosage: string;
+  duration_days: number;
+}
+
+export interface PrescriptionResponse {
+  id: number;
+  patient_id: string;
+  medication: string;
+  dosage: string;
+  duration_days: number;
+  prescribed_by: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+/** Doctor-only: prescribe medication for an appointment's patient. */
+export async function createPrescription(
+  payload: PrescriptionCreate,
+): Promise<PrescriptionResponse> {
+  const { data } = await apiClient.post<PrescriptionResponse>(
+    "/prescriptions",
+    payload,
+  );
+  return data;
+}
+
+/** Prescriptions the current doctor gave the appointment's patient (newest first). */
+export async function getAppointmentPrescriptions(
+  appointmentId: string,
+): Promise<PrescriptionResponse[]> {
+  const { data } = await apiClient.get<PrescriptionResponse[]>(
+    `/prescriptions/appointment/${appointmentId}`,
+  );
+  return data;
+}
+
 // Provider Profile API
 export interface ProviderProfile {
   id: number;
   user_id: number;
   specialty: string;
-  working_hours: Record<string, any> | null;
+  working_hours: Record<string, unknown> | null;
   experience: string | null;
   fees: number | null;
   address: string | null;
@@ -108,7 +148,7 @@ export interface ProviderUpdatePayload {
   about?: string | null;
   fees?: number | null;
   address?: string | null;
-  working_hours?: Record<string, any> | null;
+  working_hours?: Record<string, unknown> | null;
   is_active?: boolean;
 }
 

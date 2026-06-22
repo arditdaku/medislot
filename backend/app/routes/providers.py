@@ -3,12 +3,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.schemas.provider import DoctorCreate, ProviderResponse, ProviderUpdate
 from app.db.session import get_db
-from app.models.appointment import Appointment
+from app.models.appointment import Appointment, AppointmentStatus
 from app.models.provider import Provider
 from app.models.slot import AppointmentSlot
 from app.models.user import User
+from app.models.visit_record import VisitRecord
 from app.routes.auth import require_role
 from app.core.security import hash_password
+
+# A doctor can't be deleted while they still have live commitments; finished
+# appointments (completed/cancelled/no-show) don't block deletion.
+ACTIVE_APPOINTMENT_STATUSES = (
+    AppointmentStatus.waiting,
+    AppointmentStatus.in_progress,
+)
 
 router = APIRouter(prefix="/providers", tags=["providers"])
 
@@ -134,9 +142,10 @@ def delete_provider(
 ):
     """Admin-only: permanently delete a doctor (provider + login account).
 
-    Blocked (409) if the doctor has any appointments, so patient history and
-    medical records are never destroyed. Their unbooked slots are removed along
-    with the account.
+    Blocked (409) only while the doctor has **active** appointments
+    (waiting/in-progress). Once every appointment is finished
+    (completed/cancelled/no-show), the doctor — together with their slots,
+    finished appointments and visit records — is removed.
     """
     provider = db.query(Provider).filter(Provider.id == provider_id).first()
     if provider is None:
@@ -151,26 +160,42 @@ def delete_provider(
             detail="Only admins can delete providers",
         )
 
-    appointment_count = (
+    active_count = (
         db.query(Appointment)
         .join(AppointmentSlot, AppointmentSlot.id == Appointment.slot_id)
         .filter(AppointmentSlot.provider_id == provider.id)
+        .filter(Appointment.status.in_(ACTIVE_APPOINTMENT_STATUSES))
         .count()
     )
-    if appointment_count > 0:
+    if active_count > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Cannot delete a doctor with {appointment_count} appointment(s) "
-                "on record. Their history must be preserved."
+                f"Cannot delete a doctor with {active_count} active "
+                "appointment(s). Complete, cancel or mark them as no-show first."
             ),
         )
 
     user = db.query(User).filter(User.id == provider.user_id).first()
-    # No appointments exist, so every slot is unbooked and safe to remove.
-    db.query(AppointmentSlot).filter(
-        AppointmentSlot.provider_id == provider.id
+    slot_ids = [
+        row[0]
+        for row in db.query(AppointmentSlot.id)
+        .filter(AppointmentSlot.provider_id == provider.id)
+        .all()
+    ]
+
+    # Cascade-remove in FK-safe order: visit records → appointments → slots →
+    # provider → user. Patients/services are untouched.
+    db.query(VisitRecord).filter(
+        VisitRecord.doctor_id == provider.id
     ).delete(synchronize_session=False)
+    if slot_ids:
+        db.query(Appointment).filter(
+            Appointment.slot_id.in_(slot_ids)
+        ).delete(synchronize_session=False)
+        db.query(AppointmentSlot).filter(
+            AppointmentSlot.id.in_(slot_ids)
+        ).delete(synchronize_session=False)
     db.delete(provider)
     db.flush()
     if user is not None:

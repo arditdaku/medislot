@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createVisitRecord, getVisitRecord, type VisitRecordCreate, type VisitRecordResponse } from '@/lib/api/doctor';
+import {
+  createVisitRecord,
+  getVisitRecord,
+  getAppointmentPrescriptions,
+  type VisitRecordCreate,
+  type VisitRecordResponse,
+  type PrescriptionResponse,
+} from '@/lib/api/doctor';
 import { useToast } from '@/hooks/use-toast';
 
 interface VisitNotesModalProps {
@@ -20,26 +27,38 @@ export default function VisitNotesModal({
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [existingRecord, setExistingRecord] = useState<VisitRecordResponse | null>(null);
+  const [prescriptions, setPrescriptions] = useState<PrescriptionResponse[]>([]);
   const toast = useToast();
 
-  // Fetch existing notes when modal opens
+  // Load existing notes + the prescriptions given to this patient on open.
   useEffect(() => {
-    if (isOpen) {
-      fetchExistingNotes();
-    }
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const record = await getVisitRecord(appointmentId);
+        if (!cancelled) {
+          setExistingRecord(record);
+          setNotes(record.notes);
+        }
+      } catch {
+        // 404 means no record exists yet
+        if (!cancelled) {
+          setExistingRecord(null);
+          setNotes('');
+        }
+      }
+      try {
+        const pres = await getAppointmentPrescriptions(appointmentId);
+        if (!cancelled) setPrescriptions(pres);
+      } catch {
+        if (!cancelled) setPrescriptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, appointmentId]);
-
-  async function fetchExistingNotes() {
-    try {
-      const record = await getVisitRecord(appointmentId);
-      setExistingRecord(record);
-      setNotes(record.notes);
-    } catch (error) {
-      // 404 means no record exists yet
-      setExistingRecord(null);
-      setNotes('');
-    }
-  }
 
   async function handleSubmit() {
     if (!notes.trim()) {
@@ -99,6 +118,33 @@ export default function VisitNotesModal({
             placeholder="Enter visit notes..."
           />
         </div>
+
+        {prescriptions.length > 0 && (
+          <div className="mb-6">
+            <h3 className="mb-2 text-sm font-medium text-gray-700">
+              Prescriptions you gave this patient
+            </h3>
+            <ul className="space-y-2">
+              {prescriptions.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                >
+                  <span className="mt-0.5 text-blue-600">℞</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {p.medication}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {p.dosage} · {p.duration_days} day
+                      {p.duration_days === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {!isReadOnly && (
           <div className="flex justify-end gap-3">

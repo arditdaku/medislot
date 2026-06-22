@@ -517,7 +517,8 @@ function ConfirmDelete({
         <h3 className="text-lg font-bold text-text-primary">Delete doctor?</h3>
         <p className="mt-1 text-sm text-text-secondary">
           {provider.full_name} and their login account will be permanently
-          removed. Doctors with appointments on record can&apos;t be deleted.
+          removed. A doctor can only be deleted once all their appointments are
+          finished (completed, cancelled or no-show).
         </p>
         <div className="mt-6 flex gap-3">
           <button

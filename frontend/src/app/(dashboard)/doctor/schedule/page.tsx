@@ -1,225 +1,271 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getDoctorSchedule as fetchDoctorSchedule } from "@/lib/api/doctor";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Clock,
+  CalendarDays,
+  Lock,
+  Unlock,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
+
+import { getDoctorSchedule } from "@/lib/api/doctor";
 import { blockSlot, unblockSlot } from "@/lib/api/slots";
-import type { Slot } from "@/types/api";
+import type { Slot, SlotStatus } from "@/types/api";
+import Skeleton from "@/components/ui/skeleton";
 
-type SlotStatus = "available" | "blocked" | "booked";
-
-type SlotPeriod = "Morning" | "Afternoon";
-
+// /doctor/schedule returns booked slots enriched with the patient & service.
 type ScheduleSlot = Slot & {
-  period: SlotPeriod;
-  time: string;
-  patientName?: string | null;
-  service?: string | null;
+  patient_name?: string | null;
+  service_name?: string | null;
 };
 
-const getTodayDate = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-function getStatusClassName(status: SlotStatus) {
-  if (status === "available") {
-    return "bg-primary/10 text-primary";
-  }
-
-  if (status === "blocked") {
-    return "bg-destructive/10 text-destructive";
-  }
-
-  return "bg-muted text-muted-foreground";
+function todayISO(): string {
+  const d = new Date();
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60_000).toISOString().slice(0, 10);
 }
 
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDay(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+const STATUS_META: Record<
+  SlotStatus,
+  { label: string; dot: string; chip: string }
+> = {
+  available: {
+    label: "Available",
+    dot: "bg-success",
+    chip: "border-success/30 bg-success-light text-success",
+  },
+  booked: {
+    label: "Booked",
+    dot: "bg-primary",
+    chip: "border-primary/30 bg-primary-50 text-primary",
+  },
+  blocked: {
+    label: "Blocked",
+    dot: "bg-danger",
+    chip: "border-danger/30 bg-danger-light text-danger",
+  },
+};
+
 export default function DoctorSchedulePage() {
-  const [selectedDate, setSelectedDate] = useState(getTodayDate);
+  const [date, setDate] = useState<string>(todayISO());
   const [slots, setSlots] = useState<ScheduleSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [updatingSlotId, setUpdatingSlotId] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const groupedSlots: Record<SlotPeriod, ScheduleSlot[]> = {
-    Morning: slots.filter((slot) => slot.period === "Morning"),
-    Afternoon: slots.filter((slot) => slot.period === "Afternoon"),
-  };
-
-  const fetchSchedule = async () => {
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const data = await fetchDoctorSchedule(selectedDate);
-      setSlots(
-        data.map((slot) => {
-          const start = new Date(slot.start_time);
-          const period: SlotPeriod = start.getHours() < 12 ? "Morning" : "Afternoon";
-
-          return {
-            ...slot,
-            period,
-            time: start.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          };
-        }),
-      );
-    } catch {
-      setError("Could not load the schedule for this day.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchSchedule();
-  }, [selectedDate]);
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const data = await getDoctorSchedule(date);
+        if (!cancelled) setSlots(data);
+      } catch {
+        if (!cancelled) setError("Could not load the schedule for this day.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
 
-  const handleBlockSlot = async (slotId: string) => {
-    setUpdatingSlotId(slotId);
-    setError("");
-
+  async function reload() {
     try {
-      await blockSlot(slotId);
-      await fetchSchedule();
+      setSlots(await getDoctorSchedule(date));
     } catch {
-      setError("Could not block this slot.");
-    } finally {
-      setUpdatingSlotId(null);
+      setError("Could not refresh the schedule.");
     }
-  };
+  }
 
-  const handleUnblockSlot = async (slotId: string) => {
-    setUpdatingSlotId(slotId);
+  async function toggleSlot(slot: ScheduleSlot) {
+    setPendingId(slot.id);
     setError("");
-
     try {
-      await unblockSlot(slotId);
-      await fetchSchedule();
+      if (slot.status === "blocked") {
+        await unblockSlot(slot.id);
+      } else {
+        await blockSlot(slot.id);
+      }
+      await reload();
     } catch {
-      setError("Could not unblock this slot.");
+      setError(
+        slot.status === "blocked"
+          ? "Could not unblock this slot."
+          : "Could not block this slot.",
+      );
     } finally {
-      setUpdatingSlotId(null);
+      setPendingId(null);
     }
-  };
+  }
+
+  const counts = useMemo(
+    () =>
+      slots.reduce(
+        (acc, s) => {
+          acc[s.status] += 1;
+          return acc;
+        },
+        { available: 0, booked: 0, blocked: 0 } as Record<SlotStatus, number>,
+      ),
+    [slots],
+  );
+
+  const sorted = useMemo(
+    () => [...slots].sort((a, b) => a.start_time.localeCompare(b.start_time)),
+    [slots],
+  );
 
   return (
-    <main className="min-h-screen bg-background px-6 py-8 text-foreground">
-      <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-primary">Doctor</p>
-          <h1 className="mt-2 text-3xl font-bold">Schedule</h1>
-          <p className="mt-2 text-muted-foreground">
-            Review daily slots and manage your availability.
+          <h1 className="mt-1 text-3xl font-bold text-text-primary">Schedule</h1>
+          <p className="mt-1 text-sm text-text-muted">
+            Review your slots for the day and block times you’re unavailable.
           </p>
         </div>
 
-        <label className="flex flex-col gap-2 text-sm font-medium">
-          Select day
+        <label className="relative">
+          <CalendarDays
+            size={15}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+          />
           <input
             type="date"
-            value={selectedDate}
-            onChange={(event) => setSelectedDate(event.target.value)}
-            className="min-h-11 rounded-md border border-input bg-background px-4 text-sm outline-none focus:border-primary"
+            value={date}
+            onChange={(e) => setDate(e.target.value || todayISO())}
+            className="min-h-11 rounded-full border border-border bg-bg-primary pl-9 pr-3 text-sm text-text-primary outline-none transition focus:border-primary"
           />
         </label>
-      </section>
+      </div>
 
       {error && (
-        <div className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
+        <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-light px-4 py-3 text-sm font-medium text-danger">
+          <AlertTriangle size={16} />
           {error}
         </div>
       )}
 
-      {isLoading ? (
-        <section className="rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
-          <p className="text-sm text-muted-foreground">Loading schedule...</p>
-        </section>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {(["Morning", "Afternoon"] as const).map((period) => (
-            <section
-              key={period}
-              className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm"
+      <h2 className="text-lg font-semibold text-text-primary">
+        Slots for {formatDay(date)}
+      </h2>
+
+      {/* Legend / counts */}
+      {!isLoading && slots.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
+          {(Object.keys(STATUS_META) as SlotStatus[]).map((s) => (
+            <span
+              key={s}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 ${STATUS_META[s].chip}`}
             >
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">{period}</h2>
-                <span className="text-sm text-muted-foreground">
-                  {groupedSlots[period].length} slots
-                </span>
-              </div>
-
-              {groupedSlots[period].length === 0 ? (
-                <p className="rounded-md border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                  No slots available for this period.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {groupedSlots[period].map((slot) => (
-                    <article
-                      key={slot.id}
-                      className="rounded-md border border-border bg-background p-4"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-semibold">{slot.time}</p>
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getStatusClassName(
-                                slot.status,
-                              )}`}
-                            >
-                              {slot.status}
-                            </span>
-                          </div>
-
-                          {slot.status === "booked" && (
-                            <p className="mt-2 text-sm text-muted-foreground">
-                              {slot.patientName ?? "Booked patient"} · {slot.service ?? "Service"}
-                            </p>
-                          )}
-                        </div>
-
-                        {slot.status === "available" && (
-                          <button
-                            type="button"
-                            disabled={updatingSlotId === slot.id}
-                            onClick={() => handleBlockSlot(slot.id)}
-                            className="rounded-md border border-destructive/30 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive hover:text-destructive-foreground disabled:cursor-not-allowed disabled:opacity-70"
-                          >
-                            {updatingSlotId === slot.id
-                              ? "Blocking..."
-                              : "Block"}
-                          </button>
-                        )}
-
-                        {slot.status === "blocked" && (
-                          <button
-                            type="button"
-                            disabled={updatingSlotId === slot.id}
-                            onClick={() => handleUnblockSlot(slot.id)}
-                            className="rounded-md border border-primary/30 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-70"
-                          >
-                            {updatingSlotId === slot.id
-                              ? "Unblocking..."
-                              : "Unblock"}
-                          </button>
-                        )}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
+              <span className={`h-2 w-2 rounded-full ${STATUS_META[s].dot}`} />
+              {STATUS_META[s].label}: {counts[s]}
+            </span>
           ))}
         </div>
       )}
-    </main>
+
+      {/* Slots grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+      ) : slots.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-bg-primary px-4 py-16 text-center">
+          <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-bg-muted text-text-muted">
+            <Clock size={22} />
+          </div>
+          <p className="font-semibold text-text-primary">No slots for this day</p>
+          <p className="mt-1 text-sm text-text-muted">
+            Try another day. New availability is generated by your admin.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {sorted.map((slot) => {
+            const meta = STATUS_META[slot.status];
+            const isBooked = slot.status === "booked";
+            const isPending = pendingId === slot.id;
+            return (
+              <div
+                key={slot.id}
+                className="flex flex-col gap-2 rounded-2xl border border-border bg-bg-primary p-4 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-text-primary">
+                    {formatTime(slot.start_time)}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold ${meta.chip}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                    {meta.label}
+                  </span>
+                </div>
+
+                <span className="text-xs text-text-muted">
+                  until {formatTime(slot.end_time)}
+                </span>
+
+                {isBooked && slot.patient_name && (
+                  <span className="truncate text-xs text-text-secondary">
+                    {slot.patient_name}
+                    {slot.service_name ? ` · ${slot.service_name}` : ""}
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => toggleSlot(slot)}
+                  disabled={isBooked || isPending}
+                  className={`mt-1 inline-flex items-center justify-center gap-1.5 rounded-full border py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    slot.status === "blocked"
+                      ? "border-success/30 bg-success-light text-success hover:bg-success hover:text-white"
+                      : "border-border bg-white text-text-secondary hover:bg-bg-muted"
+                  }`}
+                >
+                  {isPending ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : slot.status === "blocked" ? (
+                    <Unlock size={13} />
+                  ) : (
+                    <Lock size={13} />
+                  )}
+                  {isBooked
+                    ? "Booked"
+                    : slot.status === "blocked"
+                      ? "Unblock"
+                      : "Block"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
