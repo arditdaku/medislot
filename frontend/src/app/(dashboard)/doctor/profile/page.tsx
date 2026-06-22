@@ -17,26 +17,35 @@ export default function DoctorProfilePage() {
   const [is_active, setIsActive] = useState(true);
   
   const toast = useToast();
-
   useEffect(() => {
-    loadProfile();
-  }, []);
+    let cancelled = false;
 
-  async function loadProfile() {
-    try {
-      const data = await getMyProvider();
-      setProfile(data);
-      setAbout(data.about || "");
-      setFees(data.fees);
-      setAddress(data.address || "");
-      setIsActive(data.is_active);
-    } catch (error) {
-      toast.error("Failed to load profile");
-      console.error(error);
-    } finally {
-      setLoading(false);
+    async function loadProfile() {
+      try {
+        const data = await getMyProvider();
+        if (!cancelled) {
+          setProfile(data);
+          setAbout(data.about || "");
+          setFees(data.fees);
+          setAddress(data.address || "");
+          setIsActive(data.is_active);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast.error("Failed to load profile");
+        }
+        console.error(error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   async function handleSave() {
     setSaving(true);

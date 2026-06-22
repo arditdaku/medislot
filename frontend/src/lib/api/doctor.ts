@@ -88,6 +88,26 @@ export async function getVisitRecord(
   return data;
 }
 
+/** Enriched visit record returned by GET /doctor/visits */
+export interface DoctorVisit {
+  id: string;
+  appointment_id: string;
+  patient_name: string | null;
+  service_name: string | null;
+  appointment_date: string;
+  notes: string;
+  ai_summary: string | null;
+  created_at: string;
+}
+
+/** GET /doctor/visits — logged-in doctor's visit history, newest first. */
+export async function getDoctorVisits(search?: string): Promise<DoctorVisit[]> {
+  const { data } = await apiClient.get<DoctorVisit[]>("/doctor/visits", {
+    params: search ? { search } : undefined,
+  });
+  return data;
+}
+
 // Prescriptions API
 export interface PrescriptionCreate {
   appointment_id: string;

@@ -41,5 +41,16 @@ class ProviderProfileResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class DoctorVisitResponse(BaseModel):
+    id: UUID
+    appointment_id: UUID
+    patient_name: Optional[str] = None
+    service_name: Optional[str] = None
+    appointment_date: datetime
+    notes: str
+    ai_summary: Optional[str] = None
+    created_at: datetime
+
+    
     class Config:
         from_attributes = True
